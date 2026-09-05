@@ -139,7 +139,9 @@ final class DungeonSystem {
         EventNpcProximityHandler.setTriggerGuard(
             DungeonSystem::canTriggerDungeonNpc
         );
-        EventDialogueLifecycle.register(DungeonSystem::onDialogueStateChanged);
+        EventDialogueLifecycle.registerCompletion(
+            DungeonSystem::onDialogueCompleted
+        );
         DungeonWaitingPokemonAccess.register();
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(
@@ -2242,10 +2244,10 @@ final class DungeonSystem {
         return true;
     }
 
-    private static synchronized void onDialogueStateChanged(
-        ServerPlayer player, EventSessionKey sessionKey, boolean open
+    private static synchronized void onDialogueCompleted(
+        ServerPlayer player, EventSessionKey sessionKey
     ) {
-        if (open || !sessionKey.scriptId().equals(DungeonEncounterEvent.SCRIPT_ID)) {
+        if (!sessionKey.scriptId().equals(DungeonEncounterEvent.SCRIPT_ID)) {
             return;
         }
         ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
@@ -2256,6 +2258,10 @@ final class DungeonSystem {
             runtime.dialogueEncounterId = null;
             runtime.dialoguePlayerId = null;
             DungeonDefinition.Encounter encounter = runtime.encounter(encounterId);
+            // The callback has now either launched the battle (STARTING/ACTIVE) or
+            // actually cancelled/failed while the encounter is still AVAILABLE.
+            // Cleaning up on the earlier UI-close signal removed the runtime battle
+            // preset before the CVES battle command could consume it.
             if (encounter != null && encounter.generatedTrainer() != null
                 && runtime.statusById.get(encounterId) == EncounterStatus.AVAILABLE) {
                 cleanupGeneratedEncounter(runtime, encounterId);
@@ -3170,6 +3176,10 @@ final class DungeonSystem {
 
     private static void returnPlayer(ServerPlayer player, String message) {
         ReturnFrame frame = popReturnFrame(player);
+        ActiveRun active = ACTIVE_RUNS.get(player.getUUID());
+        if (active != null) {
+            clearDungeonEncounterUi(player, active);
+        }
         ActiveRun run = releaseRun(player.getUUID());
         if (frame == null) {
             ServerLevel fallback = player.getServer().getLevel(CobbleventureBootstrap.GENERATION_ONE);
@@ -3421,6 +3431,16 @@ final class DungeonSystem {
         return removed;
     }
 
+    private static void clearDungeonEncounterUi(ServerPlayer player, ActiveRun run) {
+        executeDungeonUiCommand(player, "cobbleventure_battle_warning_clear @s");
+        DUNGEON_WARNING_INSIDE.removeIf(key ->
+            key.runId().equals(run.runId()) && key.playerId().equals(player.getUUID())
+        );
+        DUNGEON_TRIGGER_INSIDE.removeIf(key ->
+            key.runId().equals(run.runId()) && key.playerId().equals(player.getUUID())
+        );
+    }
+
     private static synchronized void onPlayerLoggedIn(
         PlayerEvent.PlayerLoggedInEvent event
     ) {
@@ -3562,9 +3582,12 @@ final class DungeonSystem {
                     run.runId(), participantId, encounter.id()
                 );
                 double distance = player.distanceToSqr(leader);
+                boolean playerEligible = canActivateDungeonEncounterForPlayer(
+                    eligible, PokemonCenterDefeatReturn.blocksNewNpcEvents(player)
+                );
                 boolean physicallyInTrigger = distance <= triggerSquared;
-                boolean inWarning = eligible && distance <= warningSquared;
-                boolean inTrigger = eligible && physicallyInTrigger;
+                boolean inWarning = playerEligible && distance <= warningSquared;
+                boolean inTrigger = playerEligible && physicallyInTrigger;
                 if (inWarning && !inTrigger && DUNGEON_WARNING_INSIDE.add(key)) {
                     executeDungeonUiCommand(
                         player, "cobbleventure_battle_warning @s "
@@ -3575,7 +3598,7 @@ final class DungeonSystem {
                     executeDungeonUiCommand(player, "cobbleventure_battle_warning_clear @s");
                 }
                 boolean entered = observeDungeonTriggerEntry(
-                    DUNGEON_TRIGGER_INSIDE, key, physicallyInTrigger, eligible
+                    DUNGEON_TRIGGER_INSIDE, key, physicallyInTrigger, playerEligible
                 );
                 if (!physicallyInTrigger) {
                     continue;
@@ -3627,6 +3650,9 @@ final class DungeonSystem {
                     }
                     runtime.dialogueEncounterId = null;
                     runtime.dialoguePlayerId = null;
+                    releaseDungeonTriggerAfterFailedStart(
+                        DUNGEON_TRIGGER_INSIDE, key
+                    );
                 }
             }
         }
@@ -3645,6 +3671,21 @@ final class DungeonSystem {
             return false;
         }
         return eligible && inside.add(key);
+    }
+
+    static boolean canActivateDungeonEncounterForPlayer(
+        boolean encounterEligible, boolean defeatRecoveryBlocked
+    ) {
+        return encounterEligible && !defeatRecoveryBlocked;
+    }
+
+    /**
+     * CVES can temporarily reject a new encounter while another battle start or
+     * await input owns the player. Do not keep the player latched inside in that
+     * case: the next scan must retry without forcing them to leave the radius first.
+     */
+    static <K> void releaseDungeonTriggerAfterFailedStart(Set<K> inside, K key) {
+        inside.remove(key);
     }
 
     private static String selectEncounterLine(

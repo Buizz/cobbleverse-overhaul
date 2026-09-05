@@ -5578,7 +5578,9 @@ function dungeonNpcActorDemand(document) {
   const fixed = (document.encounters || []).filter((entry) => entry.kind !== "wild_pokemon")
     .reduce((sum, entry) => sum + (Array.isArray(entry.trainers) ? entry.trainers.length
       : Array.isArray(entry.npcs) ? entry.npcs.length : 0), 0);
-  const generated = document.generated_trainers?.enabled ? dungeonRange(document.generated_trainers.count, [1, 1])[1] : 0;
+  const generatedActors = document.multiplayer?.mode === "cooperative" ? 2 : 1;
+  const generated = document.generated_trainers?.enabled
+    ? dungeonRange(document.generated_trainers.count, [1, 1])[1] * generatedActors : 0;
   return fixed + generated;
 }
 
@@ -5586,7 +5588,9 @@ function dungeonOrdinaryNpcDemand(document) {
   const fixed = (document.encounters || []).filter((entry) => entry.kind !== "wild_pokemon" && !entry.boss)
     .reduce((sum, entry) => sum + (Array.isArray(entry.trainers) ? entry.trainers.length
       : Array.isArray(entry.npcs) ? entry.npcs.length : 0), 0);
-  const generated = document.generated_trainers?.enabled ? dungeonRange(document.generated_trainers.count, [1, 1])[1] : 0;
+  const generatedActors = document.multiplayer?.mode === "cooperative" ? 2 : 1;
+  const generated = document.generated_trainers?.enabled
+    ? dungeonRange(document.generated_trainers.count, [1, 1])[1] * generatedActors : 0;
   return fixed + generated;
 }
 
@@ -6422,8 +6426,12 @@ function renderDungeonGeneratedPopulation() {
   const appearances = config.appearance_pool || [];
   const dialogues = config.dialogue_pool || [];
   const pokemon = config.pokemon_pool || [];
+  const cooperative = state.dungeon.multiplayer?.mode === "cooperative";
+  const countHelp = cooperative
+    ? "협력 던전에서는 자동 조우 하나마다 NPC 두 명이 한 조로 생성됩니다."
+    : "자동 조우 하나마다 NPC 한 명이 생성됩니다.";
   const removeButton = (pool, index, length) => `<button class="button danger dungeon-generated-button" type="button" data-generated-remove="${pool}" data-index="${index}"${length <= 1 ? " disabled" : ""}>삭제</button>`;
-  root.innerHTML = `<div class="dungeon-generated-population-controls"><label class="toggle"><input name="generatedEnabled" type="checkbox"${config.enabled ? " checked" : ""}><span>자동 NPC 생성 사용</span></label><label><span>생성 NPC 최소 수</span><input name="generatedCountMin" type="number" min="1" max="256" value="${count[0]}"></label><label><span>생성 NPC 최대 수</span><input name="generatedCountMax" type="number" min="1" max="256" value="${count[1]}"></label><label><span>NPC당 포켓몬 최소 수</span><input name="generatedTeamMin" type="number" min="1" max="6" value="${team[0]}"></label><label><span>NPC당 포켓몬 최대 수</span><input name="generatedTeamMax" type="number" min="1" max="6" value="${team[1]}"></label><label class="toggle"><input name="generatedAllowDuplicates" type="checkbox"${config.allow_duplicates ? " checked" : ""}><span>한 팀에서 같은 종 중복 허용</span></label></div><div class="dungeon-generated-pools${config.enabled ? "" : " is-disabled"}"><section><header><div><b>외형 풀</b><small>표시 이름과 외형 클래스·세부 타입을 함께 추첨합니다.</small></div><button class="button secondary dungeon-generated-button" type="button" data-generated-add="appearance">＋ 외형</button></header>${appearances.map((entry, index) => `<article data-generated-row="appearance"><label><span>표시 이름</span><input name="generatedAppearanceName" value="${escapeHtml(entry.display_name?.ko_kr || "")}"></label><label><span>외형 클래스</span><select name="generatedAppearanceClass" data-dungeon-search-select>${dungeonTrainerClassOptions(entry.trainer_class)}</select></label>${rosterCharactersForClass(entry.trainer_class).length ? `<label><span>세부 외형</span><select name="generatedAppearanceCharacter" data-dungeon-search-select>${rosterCharacterOptions(entry.trainer_class, entry.character || "", "클래스 기본 외형")}</select></label>` : ""}<label><span>가중치</span><input name="generatedAppearanceWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label><div class="dungeon-generated-appearance-preview">${dungeonTrainerAppearance(entry, `generated-${index}`)}</div>${removeButton("appearance", index, appearances.length)}</article>`).join("")}</section><section><header><div><b>대사 풀</b><small>NPC마다 전투 시작·종료 대사 한 쌍을 추첨합니다.</small></div><button class="button secondary dungeon-generated-button" type="button" data-generated-add="dialogue">＋ 대사</button></header>${dialogues.map((entry, index) => `<article data-generated-row="dialogue"><label><span>전투 시작 대사</span><input name="generatedStartLine" value="${escapeHtml(entry.battle_start_line || "")}"></label><label><span>전투 종료 대사</span><input name="generatedEndLine" value="${escapeHtml(entry.battle_end_line || "")}"></label><label><span>가중치</span><input name="generatedDialogueWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("dialogue", index, dialogues.length)}</article>`).join("")}</section><section><header><div><b>포켓몬 풀</b><small>가중치에 따라 팀을 만들며 위의 NPC당 포켓몬 수 범위를 따릅니다.</small></div><label><span>포켓몬 추가</span><select name="generatedPokemonAdd" data-dungeon-search-select>${dungeonPokemonPoolOptions(pokemon)}</select></label></header>${pokemon.map((entry, index) => `<article data-generated-row="pokemon"><label><span>포켓몬 종</span><input name="generatedPokemonSpecies" value="${escapeHtml(entry.species || "")}"></label><label><span>가중치</span><input name="generatedPokemonWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("pokemon", index, pokemon.length)}</article>`).join("")}</section></div>`;
+  root.innerHTML = `<div class="dungeon-generated-population-controls"><label class="toggle"><input name="generatedEnabled" type="checkbox"${config.enabled ? " checked" : ""}><span>자동 NPC 생성 사용</span></label><label><span>자동 조우 최소 수</span><input name="generatedCountMin" type="number" min="1" max="256" value="${count[0]}"><small>${countHelp}</small></label><label><span>자동 조우 최대 수</span><input name="generatedCountMax" type="number" min="1" max="256" value="${count[1]}"></label><label><span>NPC당 포켓몬 최소 수</span><input name="generatedTeamMin" type="number" min="1" max="6" value="${team[0]}"></label><label><span>NPC당 포켓몬 최대 수</span><input name="generatedTeamMax" type="number" min="1" max="6" value="${team[1]}"></label><label class="toggle"><input name="generatedAllowDuplicates" type="checkbox"${config.allow_duplicates ? " checked" : ""}><span>한 팀에서 같은 종 중복 허용</span></label></div><div class="dungeon-generated-pools${config.enabled ? "" : " is-disabled"}"><section><header><div><b>외형 풀</b><small>표시 이름과 외형 클래스·세부 타입을 함께 추첨합니다.</small></div><button class="button secondary dungeon-generated-button" type="button" data-generated-add="appearance">＋ 외형</button></header>${appearances.map((entry, index) => `<article data-generated-row="appearance"><label><span>표시 이름</span><input name="generatedAppearanceName" value="${escapeHtml(entry.display_name?.ko_kr || "")}"></label><label><span>외형 클래스</span><select name="generatedAppearanceClass" data-dungeon-search-select>${dungeonTrainerClassOptions(entry.trainer_class)}</select></label>${rosterCharactersForClass(entry.trainer_class).length ? `<label><span>세부 외형</span><select name="generatedAppearanceCharacter" data-dungeon-search-select>${rosterCharacterOptions(entry.trainer_class, entry.character || "", "클래스 기본 외형")}</select></label>` : ""}<label><span>가중치</span><input name="generatedAppearanceWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label><div class="dungeon-generated-appearance-preview">${dungeonTrainerAppearance(entry, `generated-${index}`)}</div>${removeButton("appearance", index, appearances.length)}</article>`).join("")}</section><section><header><div><b>대사 풀</b><small>조우마다 전투 시작·종료 대사 한 쌍을 추첨합니다.</small></div><button class="button secondary dungeon-generated-button" type="button" data-generated-add="dialogue">＋ 대사</button></header>${dialogues.map((entry, index) => `<article data-generated-row="dialogue"><label><span>전투 시작 대사</span><input name="generatedStartLine" value="${escapeHtml(entry.battle_start_line || "")}"></label><label><span>전투 종료 대사</span><input name="generatedEndLine" value="${escapeHtml(entry.battle_end_line || "")}"></label><label><span>가중치</span><input name="generatedDialogueWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("dialogue", index, dialogues.length)}</article>`).join("")}</section><section><header><div><b>포켓몬 풀</b><small>가중치에 따라 각 NPC 팀을 만들며 위의 NPC당 포켓몬 수 범위를 따릅니다.</small></div><label><span>포켓몬 추가</span><select name="generatedPokemonAdd" data-dungeon-search-select>${dungeonPokemonPoolOptions(pokemon)}</select></label></header>${pokemon.map((entry, index) => `<article data-generated-row="pokemon"><label><span>포켓몬 종</span><input name="generatedPokemonSpecies" value="${escapeHtml(entry.species || "")}"></label><label><span>가중치</span><input name="generatedPokemonWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("pokemon", index, pokemon.length)}</article>`).join("")}</section></div>`;
   root.querySelectorAll("[data-dungeon-search-select]").forEach(enhanceMusicSelect);
   initializeSkinPreviews(root);
 }
@@ -8458,7 +8466,16 @@ function runtimeDungeonContentMarkers(document, placements) {
   const generatedRange = dungeonRange(document.generated_trainers?.count, [1, 1]);
   const generatedCount = document.generated_trainers?.enabled
     ? generatedRange[0] + Math.floor(generatedRandom() * (generatedRange[1] - generatedRange[0] + 1)) : 0;
-  const generatedEncounters = Array.from({ length: generatedCount }, (_, index) => ({ id: `random_trainer_${index + 1}`, display_name: { ko_kr: `자동 NPC ${index + 1}` }, trainers: [{ id: `random_trainer_${index + 1}` }], boss: false }));
+  const generatedActorCount = document.multiplayer?.mode === "cooperative" ? 2 : 1;
+  const generatedEncounters = Array.from({ length: generatedCount }, (_, index) => ({
+    id: `random_trainer_${index + 1}`,
+    display_name: { ko_kr: `자동 NPC 조우 ${index + 1}` },
+    trainers: Array.from({ length: generatedActorCount }, (_, actor) => ({
+      id: actor ? `random_trainer_${index + 1}_partner_${actor}` : `random_trainer_${index + 1}`,
+    })),
+    cooperative_battle: generatedActorCount === 2,
+    boss: false,
+  }));
   const encounters = [...fixedEncounters, ...generatedEncounters].map((entry, index) => ({ entry, index }));
   const spacing = Math.max(0, Number(document.npc_placement?.minimum_spacing ?? 4));
   const markerPositions = (placement, kind) => {
@@ -17845,10 +17862,11 @@ async function renderSettlement() {
   renderResidentialCatalogOptions();
   updateFacilityFormState(normalizeTownFootprintShape(document.town_footprint_shape));
   await renderVillageGenerationTest();
+  renderFixedTownNpcs();
   renderTrainerSlots();
   renderSettlementAutoNpcPreview();
   $("#settlement-json").value = JSON.stringify(document, null, 2);
-  ["#settlement-json", "#apply-settlement-json", "#add-trainer-slot", "#delete-settlement", "#validate-settlement", "#save-settlement"].forEach((selector) => $(selector).disabled = false);
+  ["#settlement-json", "#apply-settlement-json", "#add-fixed-town-npc", "#add-trainer-slot", "#delete-settlement", "#validate-settlement", "#save-settlement"].forEach((selector) => $(selector).disabled = false);
   showIssues("#settlement-issues", { valid: true, issues: [] });
 }
 
@@ -17863,6 +17881,65 @@ function trainerSlotId(trainerId, slots) {
 
 function settlementTrainer(trainerId) {
   return state.trainers.find((trainer) => trainer.id === trainerId);
+}
+
+function ambientTownNpcChoices() {
+  return state.trainers.filter((npc) =>
+    (npc.classification || (npc.battle_type ? "trainer" : "ambient")) === "ambient"
+  );
+}
+
+function renderFixedTownNpcs() {
+  const list = $("#fixed-town-npc-list");
+  const fixedNpcs = state.settlement?.npc_placement?.fixed_npcs || [];
+  if (!fixedNpcs.length) {
+    list.innerHTML = '<div class="issues empty">고정 야외 NPC가 없습니다.</div>';
+    return;
+  }
+  const choices = ambientTownNpcChoices();
+  list.innerHTML = fixedNpcs.map((npcId, index) => {
+    const known = choices.some((npc) => npc.id === npcId);
+    const options = [
+      ...(!known ? [`<option value="${escapeHtml(npcId)}">${escapeHtml(npcId)} · 현재 목록에 없음</option>`] : []),
+      ...choices.map((npc) => {
+        const assignedElsewhere = fixedNpcs.some((assigned, assignedIndex) =>
+          assignedIndex !== index && assigned === npc.id
+        );
+        const label = npc.name || npc.npc_name || npc.id;
+        return `<option value="${escapeHtml(npc.id)}"${assignedElsewhere ? " disabled" : ""}>${escapeHtml(label)} · ${escapeHtml(npc.id)}</option>`;
+      })
+    ].join("");
+    return `<div class="fixed-town-npc-row" data-fixed-town-npc-row="${index}"><label><span>단순 NPC</span><select data-fixed-town-npc="${index}">${options}</select></label><button type="button" class="remove-trainer-slot" data-remove-fixed-town-npc="${index}">삭제</button></div>`;
+  }).join("");
+  $$("[data-fixed-town-npc]").forEach((select) => {
+    select.value = fixedNpcs[Number(select.dataset.fixedTownNpc)] || "";
+  });
+}
+
+function addFixedTownNpc() {
+  if (!state.settlement) return;
+  state.settlement.npc_placement ||= { max_ambient_npcs: 0, default_wander_radius: 5, trainer_slots: [], zones: [] };
+  state.settlement.npc_placement.fixed_npcs ||= [];
+  const assigned = new Set(state.settlement.npc_placement.fixed_npcs);
+  const choice = ambientTownNpcChoices().find((npc) => !assigned.has(npc.id));
+  if (!choice) { toast("추가할 수 있는 단순 NPC가 없습니다."); return; }
+  state.settlement.npc_placement.fixed_npcs.push(choice.id);
+  renderFixedTownNpcs();
+  updateSettlementFromForm();
+}
+
+function updateFixedTownNpc(index, npcId) {
+  const fixedNpcs = state.settlement?.npc_placement?.fixed_npcs;
+  if (!fixedNpcs || !npcId || fixedNpcs.some((value, valueIndex) => valueIndex !== index && value === npcId)) return;
+  fixedNpcs[index] = npcId;
+  renderFixedTownNpcs();
+  updateSettlementFromForm();
+}
+
+function removeFixedTownNpc(index) {
+  state.settlement?.npc_placement?.fixed_npcs?.splice(index, 1);
+  renderFixedTownNpcs();
+  updateSettlementFromForm();
 }
 
 function trainerSlotMember(id, npcProfile, position, rotation = 0) {
@@ -21281,6 +21358,15 @@ $("#town-decoration-rotation").addEventListener("change", (event) => {
 });
 $$('[data-preview-zone]').forEach((button) => button.addEventListener("click", () => previewSettlementZone(Number(button.dataset.previewZone))));
 $("#add-trainer-slot").addEventListener("click", addTrainerSlot);
+$("#add-fixed-town-npc").addEventListener("click", addFixedTownNpc);
+$("#fixed-town-npc-list").addEventListener("input", (event) => {
+  const select = event.target.closest("[data-fixed-town-npc]");
+  if (select) updateFixedTownNpc(Number(select.dataset.fixedTownNpc), select.value);
+});
+$("#fixed-town-npc-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-fixed-town-npc]");
+  if (button) removeFixedTownNpc(Number(button.dataset.removeFixedTownNpc));
+});
 $("#trainer-slot-list").addEventListener("input", updateTrainerSlot);
 $("#trainer-slot-list").addEventListener("click", (event) => {
   const button = event.target.closest("[data-remove-trainer-slot]");

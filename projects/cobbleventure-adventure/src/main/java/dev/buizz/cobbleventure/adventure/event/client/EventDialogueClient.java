@@ -119,6 +119,15 @@ public final class EventDialogueClient {
     }
 
     static boolean allowsExternalScreen(String className, String kind) {
+        if (kind.equals("battle") && (className.equals(
+            "dev.buizz.cobbleventure.playermenu.client.PlayerMenuScreen"
+        ) || className.equals(
+            "dev.buizz.cobbleventure.playermenu.client.BagScreen"
+        ) || className.equals(
+            "dev.buizz.cobbleventure.playermenu.client.BagPokemonSelectScreen"
+        ))) {
+            return true;
+        }
         if (className.equals(
             "dev.buizz.cobbleventure.adventure.daycare.client.DaycareScreen"
         )) {

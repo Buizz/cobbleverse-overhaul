@@ -1,9 +1,12 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.cobblemon.mod.common.client.CobblemonClient;
+import com.cobblemon.mod.common.client.gui.battle.BattleGUI;
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.toasts.Toast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.world.InteractionHand;
@@ -30,6 +33,7 @@ public final class PlayerMenuClient {
     public static void register(IEventBus modBus) {
         PlayerMenuKeyMappings.register(modBus);
         NeoForge.EVENT_BUS.addListener(PlayerMenuClient::onScreenOpening);
+        NeoForge.EVENT_BUS.addListener(PlayerMenuClient::onScreenKeyPressed);
         NeoForge.EVENT_BUS.addListener(PlayerMenuClient::onClientTick);
     }
 
@@ -132,12 +136,50 @@ public final class PlayerMenuClient {
         }
     }
 
+    private static void onScreenKeyPressed(ScreenEvent.KeyPressed.Pre event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (!(event.getScreen() instanceof BattleGUI battleScreen)
+            || minecraft.player == null
+            || !minecraft.options.keyInventory.matches(event.getKeyCode(), event.getScanCode())) {
+            return;
+        }
+
+        var battle = CobblemonClient.INSTANCE.getBattle();
+        if (battle == null) return;
+        battle.setMinimised(true);
+        minecraft.setScreen(new PlayerMenuScreen(battleScreen));
+        event.setCanceled(true);
+    }
+
     private static void onClientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
         disableLegacyIrisReloadKey(minecraft);
         disableLegacyIrisShaderPackSelectionKey(minecraft);
         disableLegacyCobblemonSummaryKey(minecraft);
         disableLegacyCobblemonHidePartyKey(minecraft);
+        suppressCobblemonStarterPrompt(minecraft);
+    }
+
+    /**
+     * Cobbleventure awards starters through its authored roulette, so Cobblemon's
+     * built-in starter prompt and selection screen must stay hidden. Re-checking
+     * the two flags is intentional: Cobblemon can reset them when the client
+     * connection state changes, including reconnecting or publishing to LAN.
+     */
+    private static void suppressCobblemonStarterPrompt(Minecraft minecraft) {
+        if (minecraft.player == null) {
+            return;
+        }
+
+        CobblemonClient client = CobblemonClient.INSTANCE;
+        if (!client.getCheckedStarterScreen()) {
+            client.setCheckedStarterScreen(true);
+        }
+
+        var starterToast = client.getOverlay().getStarterToast();
+        if (starterToast.getNextVisibility$common() != Toast.Visibility.HIDE) {
+            starterToast.setNextVisibility$common(Toast.Visibility.HIDE);
+        }
     }
 
     /** Migrates existing pack instances whose Iris reload key predates options.txt overrides. */

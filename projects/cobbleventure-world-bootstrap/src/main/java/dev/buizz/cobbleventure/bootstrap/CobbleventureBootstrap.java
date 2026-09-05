@@ -6,6 +6,7 @@ import dev.buizz.cobbleventure.adventure.AdventureWorldContext;
 import dev.buizz.cobbleventure.adventure.CobbleventureAdventure;
 import dev.buizz.cobbleventure.adventure.FieldMoveRidingAccess;
 import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
+import dev.buizz.cobbleventure.adventure.TrainerBattleState;
 import dev.buizz.cobbleventure.adventure.event.EventLocationRef;
 import dev.buizz.cobbleventure.adventure.event.EventMovementFailureReason;
 import dev.buizz.cobbleventure.adventure.event.EventLocationResolverRegistry;
@@ -141,6 +142,7 @@ public final class CobbleventureBootstrap {
     private static final int INITIAL_SPAWN_DIAGNOSTIC_EVENTS = 20;
     private static int blockedPursuitZonePokemon;
     private static int blockedOutsideTerrainPokemon;
+    private static int pendingRouteNpcReconcileTicks = -1;
     private static final String DATA_FILE = "cobbleventure_world_bootstrap";
     private static final Set<EntityType<?>> BLOCKED_VANILLA_MOBS = Set.of(
         EntityType.AXOLOTL,
@@ -825,6 +827,7 @@ public final class CobbleventureBootstrap {
         pendingGenerationDebrisCleanup.clear();
         completedTownGenerationDisplay = null;
         completedTownGenerationDisplayTicks = 0;
+        pendingRouteNpcReconcileTicks = -1;
         activeDimensionAnchors = null;
         activeEventBoundaries = null;
         DoorTransitionSound.reset();
@@ -946,10 +949,16 @@ public final class CobbleventureBootstrap {
         prepareExistingBuildingRuntime(level, runtime.settlements());
         prepareExistingTownNpcs(level, runtime.settlements());
         refreshExistingConfiguredVendors(level, runtime.settlements());
-        // Existing route NPCs are restored only after every structure system
-        // has finished. Otherwise a later NBT placement can overwrite their
-        // collision space and leave them embedded in a wall.
-        spawnRouteNpcs(level, runtime.hexWorld());
+        // Restore route NPCs only for an already completed world. A new world
+        // reaches this event before its first-player initialization and would
+        // otherwise run route placement once here and again at generation end.
+        if (data.isComplete(MAP_VERSION)) {
+            if (!data.isRouteNpcLedgerInitialized()) {
+                data.initializeRouteNpcLedger(routeNpcSpawnKeys(runtime.hexWorld()));
+            }
+            spawnRouteNpcs(level, runtime.hexWorld());
+            pendingRouteNpcReconcileTicks = 40;
+        }
 
         if (Boolean.getBoolean(TOWN_SEQUENCE_PERFORMANCE_TEST_PROPERTY)) {
             SettlementPlan starter = runtime.settlements().get(STARTER_SETTLEMENT);
@@ -1293,6 +1302,7 @@ public final class CobbleventureBootstrap {
             return false;
         }
         Map<String, SettlementPlan> settlements = runtime.settlements();
+        activeHexWorld = runtime.hexWorld();
         activeSettlements = settlements;
         activeFacilityMusicZones = facilityMusicZones(level, settlements);
         SettlementPlan starter = settlements.get(STARTER_SETTLEMENT);
@@ -5994,6 +6004,14 @@ public final class CobbleventureBootstrap {
         }
         runPendingWorldInitialization(event);
         runActiveWorldInitialization();
+        if (pendingRouteNpcReconcileTicks > 0
+            && --pendingRouteNpcReconcileTicks == 0) {
+            ServerLevel routeLevel = event.getServer().getLevel(GENERATION_ONE);
+            HexWorldPlan routeWorld = activeHexWorld;
+            if (routeLevel != null && routeWorld != null) {
+                spawnRouteNpcs(routeLevel, routeWorld);
+            }
+        }
         reconcileFacilityVendors(event.getServer());
         runScheduledGenerationDebrisCleanup(event.getServer());
         tickCompletedTownGenerationDisplay();
@@ -7072,6 +7090,7 @@ public final class CobbleventureBootstrap {
             }
             return;
         }
+        spawnRouteNpcs(job.level, job.runtime.hexWorld());
         job.data.complete(job.spawnPos, job.villagePos, MAP_VERSION);
         job.progress.update(100, "시작 지역 생성 완료");
         moveWaitingPlayersToStart(job.level, job.spawnPos);
@@ -7834,16 +7853,77 @@ public final class CobbleventureBootstrap {
                 BlockPoint resolved = resolveDirectFacilityPosition(level, settlement, facility);
                 if (resolved == null) continue;
                 BlockPoint origin = applyBuildingPlacementYOffset(facility.structure(), resolved);
-                zones.add(new FacilityMusicZone(
-                    origin.x(), origin.y(), origin.z(),
-                    origin.x() + Math.max(1, facility.footprintWidth()),
-                    origin.y() + Math.max(4, facility.footprintHeight()),
-                    origin.z() + Math.max(1, facility.footprintDepth()),
-                    context
+                zones.add(facilityMusicZone(
+                    origin, facility.footprintWidth(), facility.footprintDepth(),
+                    facility.footprintHeight(), context
                 ));
             }
         }
+        HexWorldPlan world = activeHexWorld;
+        if (world != null) {
+            for (CaveEntrancePlan entrance : world.caveEntrances()) {
+                if (!entrance.pokemonCenterEnabled()) continue;
+                FacilityMusicZone zone = cavePokemonCenterMusicZone(level, world, entrance);
+                if (zone != null) zones.add(zone);
+            }
+        }
         return List.copyOf(zones);
+    }
+
+    private static FacilityMusicZone cavePokemonCenterMusicZone(
+        ServerLevel level, HexWorldPlan world, CaveEntrancePlan entrance
+    ) {
+        Point entranceCenter = world.grid().worldCenter(entrance.anchor());
+        HexCoord offset = entrance.pokemonCenterOffset();
+        Point offsetCenter = world.grid().worldCenter(new HexCoord(
+            entrance.anchor().q() + offset.q(), entrance.anchor().r() + offset.r()
+        ));
+        CavePokemonCenterPlacement.Site site = cavePokemonCenterSite(
+            entrance, entranceCenter, offsetCenter, caveEntranceRoad(world, entrance)
+        );
+        ResourceLocation structureId = ResourceLocation.tryParse(
+            entrance.pokemonCenterStructure()
+        );
+        var template = structureId == null
+            ? Optional.<StructureTemplate>empty()
+            : level.getStructureManager().get(structureId);
+        if (template.isEmpty()) return null;
+        var size = template.orElseThrow().getSize();
+        String rotation = pokemonCenterRotation(site.roadFacing());
+        boolean quarterTurn = rotation.equals("clockwise_90")
+            || rotation.equals("counterclockwise_90");
+        int width = quarterTurn ? size.getZ() : size.getX();
+        int depth = quarterTurn ? size.getX() : size.getZ();
+        FacilityPlacement facility = new FacilityPlacement(
+            "facility_pokemon_center", "direct_template", entrance.pokemonCenterStructure(),
+            "pokemon_center", "포켓몬센터", "cave_entrance", null, null,
+            null, null, null, 0.0D, width, depth, size.getY(), 4
+        );
+        int groundY = plannedTerrainGroundY(level, site.center().x(), site.center().z());
+        BlockPoint origin = facilityTemplateOrigin(
+            level, facility, site.center().x() - width / 2, groundY,
+            site.center().z() - depth / 2, rotation
+        );
+        BlockPoint footprintOrigin = applyBuildingPlacementYOffset(
+            facility.structure(), origin
+        );
+        return facilityMusicZone(
+            footprintOrigin, width, depth, size.getY(), "pokemon_center"
+        );
+    }
+
+    private static FacilityMusicZone facilityMusicZone(
+        BlockPoint footprintOrigin, int width, int depth, int height, String context
+    ) {
+        FacilityMusicZoneGeometry.Bounds bounds = FacilityMusicZoneGeometry.bounds(
+            footprintOrigin.x(), footprintOrigin.y(), footprintOrigin.z(),
+            width, depth, height
+        );
+        return new FacilityMusicZone(
+            bounds.minX(), bounds.minY(), bounds.minZ(),
+            bounds.maxX(), bounds.maxY(), bounds.maxZ(),
+            context
+        );
     }
 
     private static String facilityMusicContextAt(ServerPlayer player) {
@@ -13697,6 +13777,10 @@ public final class CobbleventureBootstrap {
     }
 
     private static void spawnRouteNpcs(ServerLevel level, HexWorldPlan world) {
+        BootstrapSavedData data = level.getServer().overworld().getDataStorage().computeIfAbsent(
+            new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
+            DATA_FILE
+        );
         int spawned = 0;
         for (ConnectionPath route : world.paths()) {
             if (route.centerline().size() < 2) continue;
@@ -13715,10 +13799,21 @@ public final class CobbleventureBootstrap {
                 double facingX = placement.facing().equals("against") ? -point.tangentX() : point.tangentX();
                 double facingZ = placement.facing().equals("against") ? -point.tangentZ() : point.tangentZ();
                 float yaw = (float) Math.toDegrees(Math.atan2(-facingX, facingZ));
+                String spawnKey = RouteNpcSpawnLedger.key(route.id(), placement.id());
+                if (data.hasSpawnedRouteNpc(spawnKey)) {
+                    reconcileExistingRegionalNpc(
+                        level, placement.npc(), new BlockPos(x, y, z), yaw,
+                        placement.triggerOverride()
+                    );
+                    continue;
+                }
                 if (spawnRegionalNpc(
                     level, placement.npc(), new BlockPos(x, y, z), yaw,
                     placement.triggerOverride()
-                )) spawned++;
+                )) {
+                    spawned++;
+                    data.markRouteNpcSpawned(spawnKey);
+                }
             }
             RegionalTrainerPopulation population = route.trainerPopulation();
             int count = Math.min(population.count(), population.candidates().size());
@@ -13756,13 +13851,70 @@ public final class CobbleventureBootstrap {
                 loadRouteNpcChunk(level, x, z);
                 int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
                 float yaw = (float) Math.toDegrees(Math.atan2(-point.tangentX(), point.tangentZ()));
+                String npcId = population.candidates().get(index);
+                String spawnKey = RouteNpcSpawnLedger.key(route.id(), "population/" + index);
+                if (data.hasSpawnedRouteNpc(spawnKey)) {
+                    reconcileExistingRegionalNpc(
+                        level, npcId, new BlockPos(x, y, z), yaw,
+                        population.triggerFor(npcId)
+                    );
+                    continue;
+                }
                 if (spawnRegionalNpc(
-                    level, population.candidates().get(index), new BlockPos(x, y, z), yaw,
-                    population.triggerFor(population.candidates().get(index))
-                )) spawned++;
+                    level, npcId, new BlockPos(x, y, z), yaw,
+                    population.triggerFor(npcId)
+                )) {
+                    spawned++;
+                    data.markRouteNpcSpawned(spawnKey);
+                }
+            }
+            removeObsoleteRouteNpcs(level, route);
+        }
+        data.markRouteNpcLedgerInitialized();
+        if (spawned > 0) LOGGER.info("Route NPC placement completed: spawned={}", spawned);
+    }
+
+    private static Set<String> routeNpcSpawnKeys(HexWorldPlan world) {
+        Set<String> keys = new HashSet<>();
+        for (ConnectionPath route : world.paths()) {
+            for (RouteNpcPlacement placement : route.npcPlacements()) {
+                double roll = Math.floorMod(
+                    Objects.hash(world.seed(), route.id(), placement.id()), 100_000
+                ) / 100_000.0D;
+                if (roll < placement.spawnChance()) {
+                    keys.add(RouteNpcSpawnLedger.key(route.id(), placement.id()));
+                }
+            }
+            RegionalTrainerPopulation population = route.trainerPopulation();
+            int count = Math.min(population.count(), population.candidates().size());
+            for (int index = 0; population.enabled() && index < count; index++) {
+                keys.add(RouteNpcSpawnLedger.key(route.id(), "population/" + index));
             }
         }
-        if (spawned > 0) LOGGER.info("Route NPC placement completed: spawned={}", spawned);
+        return keys;
+    }
+
+    private static void removeObsoleteRouteNpcs(ServerLevel level, ConnectionPath route) {
+        if (!route.id().equals("route_custom_02")) return;
+        Set<String> obsolete = Set.of(
+            "firered_bug_catcher_cale", "firered_hiker_wayne", "firered_camper_shane"
+        );
+        List<Entity> loaded = new ArrayList<>();
+        for (Entity entity : level.getAllEntities()) {
+            if (route.bounds().contains(entity.getX(), entity.getZ(), 16.0D)
+                && obsolete.stream().anyMatch(slug -> RegionalNpcPresetSelection.sameNpc(
+                    true, slug, entity.getTags()
+                ))) {
+                loaded.add(entity);
+            }
+        }
+        for (Entity entity : loaded) entity.discard();
+        if (!loaded.isEmpty()) {
+            LOGGER.info(
+                "Removed obsolete route NPCs: route={}, removed={}",
+                route.id(), loaded.size()
+            );
+        }
     }
 
     private static void loadRouteNpcChunk(ServerLevel level, int x, int z) {
@@ -13854,6 +14006,13 @@ public final class CobbleventureBootstrap {
     private static boolean spawnSingleRegionalNpc(
         ServerLevel level, String npcId, BlockPos position, float yaw, String triggerOverride
     ) {
+        if (reconcileExistingRegionalNpc(level, npcId, position, yaw, triggerOverride)) {
+            return true;
+        }
+        boolean cvesV5 = npcPresetSuffix(level, npcId).equals("__v5");
+        String suffix = RegionalNpcPresetSelection.suffix(cvesV5, triggerOverride);
+        boolean useCvesV5 = suffix.startsWith("__v5");
+        String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
         BlockPos safePosition = findRegionalNpcPosition(level, position);
         if (safePosition == null) {
             LOGGER.warn(
@@ -13882,10 +14041,6 @@ public final class CobbleventureBootstrap {
             .filter(entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
                 .getNamespace().equals("easy_npc") || entity.getTags().contains(identityTag))
             .toList();
-        boolean cvesV5 = npcPresetSuffix(level, npcId).equals("__v5");
-        String suffix = RegionalNpcPresetSelection.suffix(cvesV5, triggerOverride);
-        boolean useCvesV5 = suffix.startsWith("__v5");
-        String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
         Entity currentNpc = existingNpcs.stream()
             .filter(entity -> RegionalNpcPresetSelection.matches(
                 useCvesV5, triggerOverride, slug, entity.getTags()
@@ -13943,6 +14098,41 @@ public final class CobbleventureBootstrap {
             LOGGER.error("Regional NPC placement failed: npc={}, position={}", npcId, safePosition, error);
             return false;
         }
+    }
+
+    private static boolean reconcileExistingRegionalNpc(
+        ServerLevel level, String npcId, BlockPos position, float yaw, String triggerOverride
+    ) {
+        boolean cvesV5 = npcPresetSuffix(level, npcId).equals("__v5");
+        boolean useCvesV5 = cvesV5;
+        String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
+        List<Entity> requestedNpcs = level.getEntitiesOfClass(
+            Entity.class, new AABB(position).inflate(8.0D, 4.0D, 8.0D)
+        ).stream().filter(entity -> RegionalNpcPresetSelection.sameNpc(
+            useCvesV5, slug, entity.getTags()
+        )).toList();
+        Entity requestedNpc = requestedNpcs.stream().filter(entity ->
+            RegionalNpcPresetSelection.matches(
+                useCvesV5, triggerOverride, slug, entity.getTags()
+            )
+        ).min(Comparator.comparingDouble(entity -> entity.distanceToSqr(
+            Vec3.atCenterOf(position)
+        ))).orElse(null);
+        if (requestedNpc != null) {
+            requestedNpc.setYRot(yaw);
+            List<UUID> duplicateIds = requestedNpcs.stream()
+                .filter(duplicate -> duplicate != requestedNpc)
+                .map(Entity::getUUID)
+                .toList();
+            TrainerBattleState.mergeNpcInstances(
+                level.getServer(), requestedNpc.getUUID(), duplicateIds
+            );
+            for (Entity duplicate : requestedNpcs) {
+                if (duplicate != requestedNpc) duplicate.discard();
+            }
+            return true;
+        }
+        return false;
     }
 
     static String npcPresetSuffix(ServerLevel level, String npcId) {
@@ -16450,6 +16640,8 @@ public final class CobbleventureBootstrap {
         private BlockPos villagePos = BlockPos.ZERO;
         private final Set<String> generatedSettlements = new HashSet<>();
         private final Set<String> spawnedTownNpcs = new HashSet<>();
+        private final Set<String> spawnedRouteNpcs = new HashSet<>();
+        private boolean routeNpcLedgerInitialized;
         private final Set<Long> pendingTownDebrisCleanup = new HashSet<>();
 
         static BootstrapSavedData create() {
@@ -16473,6 +16665,11 @@ public final class CobbleventureBootstrap {
             String spawnedNpcs = tag.getString("spawnedTownNpcs");
             if (!spawnedNpcs.isBlank()) {
                 data.spawnedTownNpcs.addAll(Arrays.asList(spawnedNpcs.split(",")));
+            }
+            data.routeNpcLedgerInitialized = tag.getBoolean("routeNpcLedgerInitialized");
+            String spawnedRouteNpcs = tag.getString("spawnedRouteNpcs");
+            if (!spawnedRouteNpcs.isBlank()) {
+                data.spawnedRouteNpcs.addAll(Arrays.asList(spawnedRouteNpcs.split(",")));
             }
             for (long chunkKey : tag.getLongArray("pendingTownDebrisCleanup")) {
                 data.pendingTownDebrisCleanup.add(chunkKey);
@@ -16508,6 +16705,32 @@ public final class CobbleventureBootstrap {
 
         void markTownNpcSpawned(String spawnKey) {
             if (spawnedTownNpcs.add(spawnKey)) {
+                setDirty();
+            }
+        }
+
+        boolean isRouteNpcLedgerInitialized() {
+            return routeNpcLedgerInitialized;
+        }
+
+        boolean hasSpawnedRouteNpc(String spawnKey) {
+            return spawnedRouteNpcs.contains(spawnKey);
+        }
+
+        void markRouteNpcSpawned(String spawnKey) {
+            if (spawnedRouteNpcs.add(spawnKey)) setDirty();
+        }
+
+        void initializeRouteNpcLedger(Set<String> spawnKeys) {
+            if (spawnedRouteNpcs.addAll(spawnKeys) || !routeNpcLedgerInitialized) {
+                routeNpcLedgerInitialized = true;
+                setDirty();
+            }
+        }
+
+        void markRouteNpcLedgerInitialized() {
+            if (!routeNpcLedgerInitialized) {
+                routeNpcLedgerInitialized = true;
                 setDirty();
             }
         }
@@ -16548,6 +16771,8 @@ public final class CobbleventureBootstrap {
             tag.putInt("villageZ", villagePos.getZ());
             tag.putString("generatedSettlements", String.join(",", generatedSettlements));
             tag.putString("spawnedTownNpcs", String.join(",", spawnedTownNpcs));
+            tag.putBoolean("routeNpcLedgerInitialized", routeNpcLedgerInitialized);
+            tag.putString("spawnedRouteNpcs", String.join(",", spawnedRouteNpcs));
             tag.putLongArray(
                 "pendingTownDebrisCleanup",
                 pendingTownDebrisCleanup.stream().mapToLong(Long::longValue).toArray()

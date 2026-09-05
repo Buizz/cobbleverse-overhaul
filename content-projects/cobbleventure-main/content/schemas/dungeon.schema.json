@@ -782,6 +782,7 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "count": {
+          "description": "자동 조우 수 범위. cooperative 던전은 조우마다 NPC 두 명을 생성한다.",
           "type": "array", "minItems": 2, "maxItems": 2,
           "prefixItems": [
             { "type": "integer", "minimum": 1, "maximum": 256 },

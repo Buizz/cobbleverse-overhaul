@@ -41,6 +41,16 @@ final class NpcRadarLocationSystemTest {
     }
 
     @Test
+    void rendersTrainerCompletionFromTheSpecificNpcInstanceResult() {
+        assertEquals("AVAILABLE", NpcRadarLocationSystem.completionState(
+            RadarLocationCatalog.NpcKind.TRAINER, false));
+        assertEquals("DEFEATED", NpcRadarLocationSystem.completionState(
+            RadarLocationCatalog.NpcKind.TRAINER, true));
+        assertEquals("COMPLETED", NpcRadarLocationSystem.completionState(
+            RadarLocationCatalog.NpcKind.IMPORTANT_NPC, true));
+    }
+
+    @Test
     void matchesAuthoredQuestNpcToItsRuntimeBindingSlug() {
         assertTrue(NpcRadarLocationSystem.matchesObjectiveNpc(
             "cobbleventure/story/professor_oak",

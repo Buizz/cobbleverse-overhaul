@@ -371,9 +371,9 @@ final class DungeonDefinitionTest {
         assertEquals("summon_all", casino.multiplayer().battleJoin());
         assertEquals(1, casino.encounters().size());
         assertTrue(casino.encounters().stream().allMatch(encounter ->
-            encounter.trainers().size() == 1
+            encounter.trainers().size() == 2 && encounter.cooperativeBattle()
         ));
-        assertEquals(1, casino.encounters().stream()
+        assertEquals(2, casino.encounters().stream()
             .flatMap(encounter -> encounter.trainers().stream())
             .map(DungeonDefinition.TrainerActor::id).distinct().count());
         assertTrue(casino.encounters().stream().allMatch(encounter ->
@@ -396,12 +396,29 @@ final class DungeonDefinitionTest {
                 casino.encounters().getLast().trainers().getFirst()
             )
         );
+        assertEquals(
+            "cobbleventure:battle/rocket_casino_admin_guard",
+            casino.encounters().getLast().trainers().get(1).battle()
+        );
         assertEquals(List.of(), casino.encounters().getLast().requires());
         assertTrue(casino.generatedTrainers().enabled());
         assertEquals(3, casino.generatedTrainers().count().minimum());
         assertEquals(5, casino.generatedTrainers().count().maximum());
         assertEquals(1, casino.generatedTrainers().teamSize().minimum());
         assertEquals(3, casino.generatedTrainers().teamSize().maximum());
+        DungeonDefinition generatedCasino = casino.materializeGeneratedTrainers(517L);
+        List<DungeonDefinition.Encounter> generatedEncounters = generatedCasino
+            .encounters().stream()
+            .filter(encounter -> encounter.generatedTrainer() != null)
+            .toList();
+        assertTrue(generatedEncounters.size() >= 3 && generatedEncounters.size() <= 5);
+        assertTrue(generatedEncounters.stream().allMatch(encounter ->
+            encounter.cooperativeBattle() && encounter.trainers().size() == 2
+        ));
+        assertEquals(
+            2 + generatedEncounters.size() * 2,
+            generatedCasino.npcPlacement().requiredSlots()
+        );
         assertEquals("boss_only", casino.progression().encounterOrder());
         assertFalse(casino.progression().usesEncounterPrerequisites());
         assertEquals("independent", silph.multiplayer().mode());

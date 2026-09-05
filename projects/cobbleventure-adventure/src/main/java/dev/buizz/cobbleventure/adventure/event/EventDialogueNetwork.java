@@ -328,6 +328,9 @@ public final class EventDialogueNetwork {
             .orElse(null);
         if (script == null) {
             LOGGER.warn("CVES dialogue callback script is unavailable: {}", payload.scriptId());
+            if (activeDialogue) {
+                EventDialogueLifecycle.completed(player, key);
+            }
             return;
         }
         EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
@@ -365,6 +368,10 @@ public final class EventDialogueNetwork {
                 "CVES dialogue callback failed: player={}, script={}",
                 player.getGameProfile().getName(), payload.scriptId(), error
             );
+        } finally {
+            if (activeDialogue) {
+                EventDialogueLifecycle.completed(player, key);
+            }
         }
     }
 

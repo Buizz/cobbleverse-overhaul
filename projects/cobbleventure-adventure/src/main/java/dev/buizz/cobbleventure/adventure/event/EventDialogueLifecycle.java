@@ -13,7 +13,14 @@ public final class EventDialogueLifecycle {
         void onStateChanged(ServerPlayer player, EventSessionKey sessionKey, boolean open);
     }
 
+    @FunctionalInterface
+    public interface CompletionListener {
+        void onCompleted(ServerPlayer player, EventSessionKey sessionKey);
+    }
+
     private static final CopyOnWriteArrayList<Listener> LISTENERS =
+        new CopyOnWriteArrayList<>();
+    private static final CopyOnWriteArrayList<CompletionListener> COMPLETION_LISTENERS =
         new CopyOnWriteArrayList<>();
     private static final Set<String> DIALOGUE_AWAIT_KINDS = Set.of(
         "say", "narrate", "choice", "number_input"
@@ -23,6 +30,11 @@ public final class EventDialogueLifecycle {
 
     public static void register(Listener listener) {
         LISTENERS.addIfAbsent(Objects.requireNonNull(listener, "listener"));
+    }
+
+    /** Runs after a dialogue response has resumed or terminated its server session. */
+    public static void registerCompletion(CompletionListener listener) {
+        COMPLETION_LISTENERS.addIfAbsent(Objects.requireNonNull(listener, "listener"));
     }
 
     /**
@@ -57,6 +69,12 @@ public final class EventDialogueLifecycle {
 
     static void closed(ServerPlayer player, EventSessionKey sessionKey) {
         notifyListeners(player, sessionKey, false);
+    }
+
+    static void completed(ServerPlayer player, EventSessionKey sessionKey) {
+        for (CompletionListener listener : COMPLETION_LISTENERS) {
+            listener.onCompleted(player, sessionKey);
+        }
     }
 
     private static void notifyListeners(

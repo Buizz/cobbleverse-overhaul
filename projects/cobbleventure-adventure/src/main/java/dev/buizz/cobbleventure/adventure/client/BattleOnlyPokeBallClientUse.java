@@ -16,11 +16,21 @@ public final class BattleOnlyPokeBallClientUse {
 
     @SubscribeEvent
     public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
+        // Dist.CLIENT also includes the integrated server hosted by a LAN player.
+        // Never let that physical client's battle state decide a remote player's
+        // server-side interaction.
         if (!(event.getItemStack().getItem() instanceof PokeBallItem)
-            || CobblemonClient.INSTANCE.getBattle() != null) {
+            || !shouldBlockUse(
+                event.getLevel().isClientSide(),
+                CobblemonClient.INSTANCE.getBattle() != null
+            )) {
             return;
         }
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.FAIL);
+    }
+
+    static boolean shouldBlockUse(boolean logicalClient, boolean hasClientBattle) {
+        return logicalClient && !hasClientBattle;
     }
 }

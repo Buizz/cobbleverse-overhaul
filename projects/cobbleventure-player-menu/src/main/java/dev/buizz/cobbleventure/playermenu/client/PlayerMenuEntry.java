@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import com.cobblemon.mod.common.client.CobblemonClient;
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import dev.buizz.cobbleventure.playermenu.ProgressionNetwork;
 import net.minecraft.client.Minecraft;
@@ -86,6 +87,7 @@ enum PlayerMenuEntry {
     }
 
     boolean enabled() {
+        if (inBattle() && this != BAG) return false;
         if (!unlocked()) return false;
         return switch (this) {
             case POKENAV -> connected() && hasPokenav();
@@ -95,6 +97,7 @@ enum PlayerMenuEntry {
     }
 
     OpenResult open() {
+        if (inBattle() && this != BAG) return OpenResult.LOCKED;
         if (!unlocked()) return OpenResult.LOCKED;
         if (this == POKENAV && !hasPokenav()) return OpenResult.MISSING_POKENAV;
         if (this == BAG) {
@@ -137,6 +140,10 @@ enum PlayerMenuEntry {
 
     private boolean isCobblemonEntry() {
         return this == POKEMON || this == PC || this == POKEDEX;
+    }
+
+    private static boolean inBattle() {
+        return CobblemonClient.INSTANCE.getBattle() != null;
     }
 
     private static boolean hasPokenav() {

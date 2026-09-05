@@ -114,9 +114,12 @@ public final class GatePokemonSystem {
                 }
                 Challenge challenge = CHALLENGES.get(player.getUUID());
                 boolean active = challenge != null && challenge.actor == actor;
+                boolean challenged = isActorChallenged(actor);
+                String pose = gate.pokemon().poseWhileChallenged(challenged);
+                synchronizeActorPose(actor, pose);
                 boolean hidden = gate.allows(player) || (active && challenge.entity != null);
                 views.add(new GatePokemonNetwork.View(actor.entity.getUUID(), actor.bounds,
-                    hidden, active ? "stand" : gate.pokemon().pose()));
+                    hidden, pose));
             }
         }
         List<GatePokemonNetwork.View> snapshot = List.copyOf(views);
@@ -207,6 +210,10 @@ public final class GatePokemonSystem {
             return true;
         }
         CHALLENGES.put(player.getUUID(), new Challenge(actor, player.serverLevel().getGameTime() + 20));
+        // Keep the authoritative entity data in step with the per-player view.
+        // Leaving the server actor asleep made its synced SLEEP pose repeatedly
+        // overwrite the client's temporary STAND pose during the wake-up delay.
+        synchronizeActorPose(actor, config.poseWhileChallenged(true));
         if (config.activationItem() != null) {
             player.playNotifySound(SoundEvents.NOTE_BLOCK_FLUTE.value(), SoundSource.PLAYERS, 1, 1);
             player.displayClientMessage(Component.translatable("message.cobbleventure_bootstrap.poke_flute.awakened"), true);
@@ -233,20 +240,60 @@ public final class GatePokemonSystem {
                 entity.moveTo(challenge.actor.entity.position(), challenge.actor.entity.getYRot(), 0);
                 challenge.entity = entity;
                 challenge.pokemonId = entity.getPokemon().getUuid();
-                if (!player.serverLevel().addFreshEntity(entity) || !entity.forceBattle(player)) {
+                if (!player.serverLevel().addFreshEntity(entity)) {
                     finish(player, false);
                     player.displayClientMessage(Component.literal("전투를 시작할 수 없습니다. 싸울 수 있는 포켓몬을 준비해 주세요."), true);
                     return;
                 }
-                challenge.battleId = entity.getBattleId();
+                // addFreshEntity has not completed entity tracking and Pokemon
+                // synchronization until this server task returns. Starting the
+                // battle inline produced an opponent slot before its Pokemon
+                // payload existed on the client.
+                player.getServer().execute(() -> startBattle(player, challenge));
             } catch (RuntimeException error) {
                 LOGGER.warn("Could not start gate Pokemon battle: {}", challenge.actor.gate.id(), error);
                 finish(player, false);
                 player.displayClientMessage(Component.literal("관문 전투를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요."), true);
             }
-        } else if (challenge.entity != null && time > challenge.startAt + 40
+        } else if (challenge.entity != null) {
+            if (challenge.battleId == null && challenge.entity.getBattleId() != null) {
+                challenge.battleId = challenge.entity.getBattleId();
+            }
+            if (time > challenge.startAt + 40
                 && BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) == null) {
+                finish(player, false);
+            }
+        }
+    }
+
+    private static void startBattle(ServerPlayer player, Challenge challenge) {
+        if (CHALLENGES.get(player.getUUID()) != challenge
+            || !player.isAlive() || challenge.entity == null
+            || !challenge.entity.isAlive()
+            || player.serverLevel() != challenge.entity.level()
+            || EventBattleBridge.hasPendingTrainerBattle(player.getUUID())
+            || BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null) {
             finish(player, false);
+            return;
+        }
+        try {
+            if (!challenge.entity.forceBattle(player)) {
+                finish(player, false);
+                player.displayClientMessage(Component.literal(
+                    "전투를 시작할 수 없습니다. 싸울 수 있는 포켓몬을 준비해 주세요."
+                ), true);
+                return;
+            }
+            challenge.battleId = challenge.entity.getBattleId();
+        } catch (RuntimeException error) {
+            LOGGER.warn(
+                "Could not start gate Pokemon battle: {}",
+                challenge.actor.gate.id(), error
+            );
+            finish(player, false);
+            player.displayClientMessage(Component.literal(
+                "관문 전투를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요."
+            ), true);
         }
     }
 
@@ -261,7 +308,13 @@ public final class GatePokemonSystem {
 
     private static boolean matchesBattle(ServerPlayer player, UUID battle) {
         Challenge challenge = CHALLENGES.get(player.getUUID());
-        return challenge != null && battle.equals(challenge.battleId);
+        if (challenge == null) return false;
+        UUID activeBattle = challenge.battleId;
+        if (activeBattle == null && challenge.entity != null) {
+            activeBattle = challenge.entity.getBattleId();
+            challenge.battleId = activeBattle;
+        }
+        return battle.equals(activeBattle);
     }
 
     private static void finish(ServerPlayer player, boolean completed) {
@@ -269,6 +322,26 @@ public final class GatePokemonSystem {
         if (challenge == null) return;
         if (completed) new ServerPlayerEventState(player).setFlag(challenge.actor.gate.pokemon().completionFlag(), true);
         if (challenge.entity != null) challenge.entity.discard();
+        synchronizeActorPose(
+            challenge.actor,
+            challenge.actor.gate.pokemon().poseWhileChallenged(
+                isActorChallenged(challenge.actor)
+            )
+        );
+    }
+
+    private static boolean isActorChallenged(Actor actor) {
+        return CHALLENGES.values().stream().anyMatch(
+            challenge -> challenge.actor == actor
+        );
+    }
+
+    private static void synchronizeActorPose(Actor actor, String pose) {
+        if (actor.entity.isRemoved()) return;
+        PoseType desired = pose.equals("sleep") ? PoseType.SLEEP : PoseType.STAND;
+        if (actor.entity.getEntityData().get(PokemonEntity.getPOSE_TYPE()) != desired) {
+            actor.entity.getEntityData().set(PokemonEntity.getPOSE_TYPE(), desired);
+        }
     }
 
     static boolean isChallenging(ServerPlayer player, String gateId) {

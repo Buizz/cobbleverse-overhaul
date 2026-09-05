@@ -9454,14 +9454,14 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                 _issue(issues, "error", path, "$.generated_trainers.enabled", "true 또는 false여야 합니다.")
             count = generated_trainers.get("count")
             if not isinstance(count, list) or len(count) != 2:
-                _issue(issues, "error", path, "$.generated_trainers.count", "생성 NPC 최소·최대 수 두 값이 필요합니다.")
+                _issue(issues, "error", path, "$.generated_trainers.count", "자동 조우 최소·최대 수 두 값이 필요합니다.")
             else:
                 integer(count[0], 1, 256, "$.generated_trainers.count[0]")
                 integer(count[1], 1, 256, "$.generated_trainers.count[1]")
                 if all(isinstance(value, int) and not isinstance(value, bool) for value in count) and count[0] > count[1]:
-                    _issue(issues, "error", path, "$.generated_trainers.count", "최소 NPC 수는 최대보다 클 수 없습니다.")
+                    _issue(issues, "error", path, "$.generated_trainers.count", "최소 자동 조우 수는 최대보다 클 수 없습니다.")
                 if enabled is True and isinstance(count[1], int) and not isinstance(count[1], bool):
-                    npc_actor_demand += count[1]
+                    npc_actor_demand += count[1] * (2 if mode == "cooperative" else 1)
             appearance_pool = generated_trainers.get("appearance_pool")
             if not isinstance(appearance_pool, list) or not appearance_pool:
                 _issue(issues, "error", path, "$.generated_trainers.appearance_pool", "외형 풀이 하나 이상 필요합니다.")

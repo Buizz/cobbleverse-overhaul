@@ -61,9 +61,9 @@
     "count": 3,
     "use_biome_defaults": false,
     "direct_trainers": [
-      "cobbleventure:npc/firered_bug_catcher_cale",
-      "cobbleventure:npc/firered_hiker_wayne",
-      "cobbleventure:npc/firered_camper_shane"
+      "cobbleventure:npc/sample_bug_catcher_doyun",
+      "cobbleventure:npc/sample_camper_jun",
+      "cobbleventure:npc/sample_hiker_seok"
     ],
     "trigger_override": "proximity"
   }

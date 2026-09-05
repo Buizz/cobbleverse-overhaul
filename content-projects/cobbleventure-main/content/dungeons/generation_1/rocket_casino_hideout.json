@@ -81,7 +81,11 @@
   "encounters": [
     {
       "id": "hideout_admin", "display_name": { "ko_kr": "로켓단 보스 비주기", "en_us": "Team Rocket Boss Giovanni" },
-      "trainers": [{ "id": "hideout_admin", "display_name": { "ko_kr": "비주기", "en_us": "Giovanni" }, "trainer_class": "cobbleventure:trainer_class/villain_boss", "character": "cobbleventure:character/giovanni", "battle": "cobbleventure:battle/rocket_casino_admin" }],
+      "cooperative_battle": true,
+      "trainers": [
+        { "id": "hideout_admin", "display_name": { "ko_kr": "비주기", "en_us": "Giovanni" }, "trainer_class": "cobbleventure:trainer_class/villain_boss", "character": "cobbleventure:character/giovanni", "battle": "cobbleventure:battle/rocket_casino_admin" },
+        { "id": "hideout_admin_guard", "display_name": { "ko_kr": "로켓단 호위", "en_us": "Team Rocket Guard" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_casino_admin_guard" }
+      ],
       "requires": [],
       "trigger": { "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3, "warning_track": "encounter.trainer_bad_guys", "start_lines": ["여기까지 온 실력은 인정하지. 하지만 이곳이 끝이다."], "win_lines": ["이번에는 물러나도록 하지."], "loss_lines": ["조직적인 전투가 무엇인지 이제 알겠나?"] },
       "yaw": 180, "boss": true

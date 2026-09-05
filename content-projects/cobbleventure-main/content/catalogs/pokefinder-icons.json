@@ -3,7 +3,6 @@
   "schema_version": 1,
   "categories": {
     "CASINO": {
-      "priority": 300,
       "primary": "#ffc44d",
       "secondary": "#f7fbff",
       "outline": "#101820",
@@ -20,7 +19,6 @@
       ]
     },
     "CAVE_ENTRANCE": {
-      "priority": 200,
       "primary": "#c3a27a",
       "secondary": "#f7fbff",
       "outline": "#101820",
@@ -37,7 +35,6 @@
       ]
     },
     "DUNGEON_ENTRANCE": {
-      "priority": 600,
       "primary": "#b89cff",
       "secondary": "#f7fbff",
       "outline": "#101820",
@@ -54,41 +51,38 @@
       ]
     },
     "FOREST_ENTRANCE": {
-      "priority": 200,
       "primary": "#5fd36d",
       "secondary": "#8b5a32",
       "outline": "#101820",
       "pixels": [
-        "...###...",
+        ".###.###.",
+        "#xx###xx#",
+        "#x#xxx#x#",
+        "#x#xxx#x#",
         ".##xxx##.",
-        "#xxxxxxx#",
-        "#xxxxxxx#",
-        "#xxxxxxx#",
-        ".##xxx##.",
-        "...#o#...",
-        "..#ooo#..",
-        "..#####.."
+        ".#######.",
+        ".#o#o#o#.",
+        ".###o###.",
+        "...###..."
       ]
     },
     "GATE": {
-      "priority": 200,
-      "primary": "#d7dee8",
-      "secondary": "#f7fbff",
-      "outline": "#101820",
+      "primary": "#5c5c5c",
+      "secondary": "#f5d6bc",
+      "outline": "#000000",
       "pixels": [
-        ".........",
+        "#########",
+        "#xxxxxxx#",
+        "#xxxxxxx#",
+        "#########",
+        "#########",
+        ".#ooooo#.",
+        ".#oo#oo#.",
         ".#######.",
-        ".#.....#.",
-        ".#...#.#.",
-        ".#...#.#.",
-        ".#...#.#.",
-        ".#.....#.",
-        ".#.....#.",
         "........."
       ]
     },
     "GYM": {
-      "priority": 700,
       "primary": "#ffd35a",
       "secondary": "#f7fbff",
       "outline": "#101820",
@@ -105,7 +99,6 @@
       ]
     },
     "GYM_LEADER": {
-      "priority": 500,
       "primary": "#ff5c5c",
       "secondary": "#f7fbff",
       "outline": "#101820",
@@ -122,7 +115,6 @@
       ]
     },
     "IMPORTANT_NPC": {
-      "priority": 400,
       "primary": "#b89cff",
       "secondary": "#f7fbff",
       "outline": "#101820",
@@ -139,24 +131,22 @@
       ]
     },
     "OBJECTIVE": {
-      "priority": 800,
       "primary": "#ffffff",
-      "secondary": "#ffc44d",
+      "secondary": "#ff5900",
       "outline": "#101820",
       "pixels": [
         "...###...",
         "..#ooo#..",
-        ".#o###o#.",
-        ".#o#.#o#.",
-        ".##..#o#.",
-        "....#o#..",
-        "...###...",
+        ".#oo#oo#.",
+        ".#o#x#o#.",
+        ".#oo#oo#.",
+        "..#ooo#..",
+        "..#ooo#..",
         "...#o#...",
-        "...###..."
+        "....#...."
       ]
     },
     "PLAYER": {
-      "priority": 1000,
       "primary": "#53e1d4",
       "secondary": "#f7fbff",
       "outline": "#101820",
@@ -173,7 +163,6 @@
       ]
     },
     "POKEMART": {
-      "priority": 700,
       "primary": "#69a7ff",
       "secondary": "#f7fbff",
       "outline": "#101820",
@@ -190,7 +179,6 @@
       ]
     },
     "POKEMON_CENTER": {
-      "priority": 700,
       "primary": "#ff6b78",
       "secondary": "#f7fbff",
       "outline": "#101820",
@@ -207,7 +195,6 @@
       ]
     },
     "SPECIAL_BUILDING": {
-      "priority": 300,
       "primary": "#62e6ff",
       "secondary": "#f7fbff",
       "outline": "#101820",
@@ -224,7 +211,6 @@
       ]
     },
     "TRAINER": {
-      "priority": 400,
       "primary": "#ff8a65",
       "secondary": "#f7fbff",
       "outline": "#101820",

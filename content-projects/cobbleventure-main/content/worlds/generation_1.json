@@ -1360,11 +1360,6 @@
         "type": "red_rock_mountain"
       },
       {
-        "q": 6,
-        "r": 5,
-        "type": "red_rock_mountain"
-      },
-      {
         "q": 0,
         "r": -1,
         "type": "red_rock_mountain"
@@ -3856,32 +3851,6 @@
       "properties": {
         "terrain_fit": "foundation",
         "placement_anchor": "road_anchor"
-      }
-    },
-    {
-      "id": "cerulean_teleport_guide",
-      "type": "gate",
-      "anchor": {
-        "q": 6,
-        "r": -2
-      },
-      "rotation": 1,
-      "properties": {
-        "facing": "east",
-        "center_placement": "npc",
-        "surrounding_type": "natural",
-        "wall_block": "minecraft:stone_bricks",
-        "tree_log": "minecraft:oak_log",
-        "tree_leaves": "minecraft:oak_leaves",
-        "wall_thickness": 5,
-        "wall_height": 7,
-        "passage_width": 11,
-        "barrier_height": 24,
-        "condition_mode": "all",
-        "conditions": [],
-        "deny_message": "블루시티 서쪽길의 순간이동 안내 NPC입니다.",
-        "deny_dialog": "greeting",
-        "npc": "easy_npc:preset/encounter/feature_teleport_guide__v5.npc.snbt"
       }
     },
     {

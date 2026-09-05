@@ -94,6 +94,46 @@ final class GatePokemonConfigTest {
         assertFalse(blocked.blocks(crossing.move(20, 0, 0)));
     }
 
+    @Test void sleepingActorStaysAwakeForTheWholeChallenge() {
+        var sleeping = GatePokemonConfig.parse(properties(), "snorlax");
+        assertEquals("sleep", sleeping.poseWhileChallenged(false));
+        assertEquals("stand", sleeping.poseWhileChallenged(true));
+
+        JsonObject value = properties();
+        value.getAsJsonObject("pokemon").addProperty("pose", "stand");
+        var standing = GatePokemonConfig.parse(value, "guard");
+        assertEquals("stand", standing.poseWhileChallenged(false));
+        assertEquals("stand", standing.poseWhileChallenged(true));
+    }
+
+    @Test void gateBattleStartsOnlyAfterTheSpawnTickReturns() throws Exception {
+        try (var stream = getClass().getClassLoader().getResourceAsStream(
+            "dev/buizz/cobbleventure/bootstrap/GatePokemonSystem.class"
+        )) {
+            assertNotNull(stream);
+            ClassNode system = new ClassNode();
+            new ClassReader(stream).accept(system, 0);
+            var tickChallenge = system.methods.stream()
+                .filter(method -> method.name.equals("tickChallenge"))
+                .findFirst().orElseThrow();
+            var startBattle = system.methods.stream()
+                .filter(method -> method.name.equals("startBattle"))
+                .findFirst().orElseThrow();
+
+            assertFalse(hasForceBattleCall(tickChallenge),
+                "The entity-spawn tick must not register an incomplete battle opponent");
+            assertTrue(hasForceBattleCall(startBattle),
+                "The deferred server task must own battle registration");
+        }
+    }
+
+    private static boolean hasForceBattleCall(org.objectweb.asm.tree.MethodNode method) {
+        return java.util.Arrays.stream(method.instructions.toArray())
+            .anyMatch(instruction -> instruction instanceof MethodInsnNode call
+                && call.owner.equals("com/cobblemon/mod/common/entity/pokemon/PokemonEntity")
+                && call.name.equals("forceBattle"));
+    }
+
     @Test void mixinMovementTargetExistsInInstalledMinecraft() throws Exception {
         try (var stream = getClass().getClassLoader().getResourceAsStream("net/minecraft/world/entity/Entity.class")) {
             assertNotNull(stream);

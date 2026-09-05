@@ -250,26 +250,19 @@
   "npc_placements": [],
   "automatic_npc_placement": {
     "enabled": true,
-    "count": 17,
+    "count": 10,
     "use_biome_defaults": false,
     "direct_trainers": [
       "cobbleventure:npc/firered_rival_cerulean_charmander",
       "cobbleventure:npc/firered_youngster_timmy",
-      "cobbleventure:npc/firered_engineer_baily",
+      "cobbleventure:npc/firered_bug_catcher_cale",
       "cobbleventure:npc/firered_lass_reli",
       "cobbleventure:npc/firered_lass_ali",
-      "cobbleventure:npc/firered_cooltrainer_mary",
       "cobbleventure:npc/firered_camper_ethan",
       "cobbleventure:npc/firered_team_rocket_grunt_6",
       "cobbleventure:npc/firered_youngster_joey",
-      "cobbleventure:npc/firered_youngster_dan",
-      "cobbleventure:npc/firered_youngster_chad",
       "cobbleventure:npc/firered_lass_haley",
-      "cobbleventure:npc/firered_picnicker_kelsey",
-      "cobbleventure:npc/firered_camper_liam",
-      "cobbleventure:npc/firered_swimmer_male_luis",
-      "cobbleventure:npc/firered_sailor_dwayne",
-      "cobbleventure:npc/firered_beauty_bridget"
+      "cobbleventure:npc/firered_hiker_wayne"
     ],
     "trigger_override": "proximity"
   }

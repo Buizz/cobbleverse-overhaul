@@ -29,4 +29,34 @@ final class DungeonEncounterProximityTest {
             inside, "trainer", true, true
         ));
     }
+
+    @Test
+    void failedGeneratedEncounterStartRetriesWhilePlayerRemainsNearby() {
+        Set<String> inside = new HashSet<>();
+
+        assertTrue(DungeonSystem.observeDungeonTriggerEntry(
+            inside, "generated-trainer", true, true
+        ));
+
+        DungeonSystem.releaseDungeonTriggerAfterFailedStart(
+            inside, "generated-trainer"
+        );
+
+        assertTrue(DungeonSystem.observeDungeonTriggerEntry(
+            inside, "generated-trainer", true, true
+        ));
+    }
+
+    @Test
+    void defeatRecoveryBlocksDungeonOwnedWarningsAndRetriggers() {
+        assertFalse(DungeonSystem.canActivateDungeonEncounterForPlayer(
+            true, true
+        ));
+        assertTrue(DungeonSystem.canActivateDungeonEncounterForPlayer(
+            true, false
+        ));
+        assertFalse(DungeonSystem.canActivateDungeonEncounterForPlayer(
+            false, false
+        ));
+    }
 }

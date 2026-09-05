@@ -4,9 +4,32 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerType;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerState;
+import dev.buizz.cobbleventure.pokefinder.marker.RadarMarker;
+import java.util.List;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
 class WorldBootstrapRadarProviderTest {
+    @org.junit.jupiter.api.Test
+    void hidesObjectiveBangWhenTheObjectiveIsAnNpc() {
+        RadarMarker npc = marker("npc", RadarMarkerType.IMPORTANT_NPC, Vec3.ZERO);
+        RadarMarker objective = marker("objective", RadarMarkerType.OBJECTIVE, Vec3.ZERO);
+
+        assertEquals(
+            List.of(npc),
+            WorldBootstrapRadarProvider.withoutNpcObjectiveDuplicates(List.of(npc, objective))
+        );
+    }
+
+    private static RadarMarker marker(String id, RadarMarkerType type, Vec3 position) {
+        return new RadarMarker(
+            ResourceLocation.fromNamespaceAndPath("test", id), type,
+            ResourceLocation.fromNamespaceAndPath("minecraft", "overworld"),
+            position, id, ResourceLocation.fromNamespaceAndPath("test", "icon/" + id),
+            0, RadarMarkerState.AVAILABLE, "", 64.0D, true
+        );
+    }
     @Test
     void mapsRuntimeLocationKinds() {
         assertEquals(RadarMarkerType.GYM_LEADER,

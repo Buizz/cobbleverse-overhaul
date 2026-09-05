@@ -1308,19 +1308,25 @@ record DungeonDefinition(
         List<Encounter> resolved = new ArrayList<>(encounters);
         Set<String> ids = new HashSet<>();
         encounters.forEach(encounter -> ids.add(encounter.id()));
+        boolean cooperativeGeneratedBattles = multiplayer.mode().equals("cooperative");
+        int generatedActorCount = cooperativeGeneratedBattles ? 2 : 1;
         for (int index = 0; index < count; index++) {
-            GeneratedAppearance appearance = weightedAppearance(
-                generatedTrainers.appearancePool(), random
-            );
             GeneratedDialogue dialogue = weightedDialogue(
                 generatedTrainers.dialoguePool(), random
             );
             String encounterId = "random_trainer_" + (index + 1);
             while (!ids.add(encounterId)) encounterId += "_generated";
-            TrainerActor actor = new TrainerActor(
-                encounterId, appearance.displayName(),
-                appearance.trainerClass(), "", appearance.character()
-            );
+            List<TrainerActor> actors = new ArrayList<>(generatedActorCount);
+            for (int actorIndex = 0; actorIndex < generatedActorCount; actorIndex++) {
+                GeneratedAppearance appearance = weightedAppearance(
+                    generatedTrainers.appearancePool(), random
+                );
+                actors.add(new TrainerActor(
+                    actorIndex == 0 ? encounterId : encounterId + "_partner_" + actorIndex,
+                    appearance.displayName(), appearance.trainerClass(), "",
+                    appearance.character()
+                ));
+            }
             GeneratedTrainer generated = new GeneratedTrainer(
                 generatedTrainers.pokemonPool(), generatedTrainers.teamSize(),
                 generatedTrainers.allowDuplicates(),
@@ -1335,9 +1341,10 @@ record DungeonDefinition(
                 List.of("다시 준비해서 도전해라.")
             );
             resolved.add(new Encounter(
-                encounterId, appearance.displayName(), "trainer", List.of(),
-                List.of(actor), List.of(), generated, null, List.of(), List.of(),
-                trigger, null, random.nextInt(4) * 90.0F, false, false
+                encounterId, actors.getFirst().displayName(), "trainer", List.of(),
+                List.copyOf(actors), List.of(), generated, null, List.of(), List.of(),
+                trigger, null, random.nextInt(4) * 90.0F, false,
+                cooperativeGeneratedBattles
             ));
         }
         int actorDemand = resolved.stream()

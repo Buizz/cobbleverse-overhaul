@@ -142,6 +142,7 @@
     "layout_mode": "automatic"
   },
   "npc_placement": {
+    "fixed_npcs": ["cobbleventure:npc/rewards/feature_teleport_guide"],
     "auto_place_npcs": false,
     "trainer_population": {
       "enabled": false,

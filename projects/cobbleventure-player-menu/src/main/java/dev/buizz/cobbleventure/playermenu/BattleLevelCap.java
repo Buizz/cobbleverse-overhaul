@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.playermenu;
 
 import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
+import com.cobblemon.mod.common.pokemon.EVs;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.util.PlayerExtensionsKt;
 import java.util.ArrayList;
@@ -73,13 +74,18 @@ public final class BattleLevelCap {
     }
 
     private static void copyPersistentBattleState(Pokemon original, Pokemon battleCopy) {
-        int resultingHealth = scaledHealth(
-            battleCopy.getCurrentHealth(), battleCopy.getMaxHealth(), original.getMaxHealth()
-        );
         original.getMoveSet().copyFrom(battleCopy.getMoveSet());
         original.setStatus(battleCopy.getStatus());
         original.setHeldItem$common(battleCopy.getHeldItem$common().copy());
+        copyEvsInto(original.getEvs(), battleCopy.getEvs());
+        int resultingHealth = scaledHealth(
+            battleCopy.getCurrentHealth(), battleCopy.getMaxHealth(), original.getMaxHealth()
+        );
         original.setCurrentHealth(resultingHealth);
+    }
+
+    static void copyEvsInto(EVs target, EVs source) {
+        for (var entry : source) target.set(entry.getKey(), entry.getValue());
     }
 
     static int scaledHealth(int health, int sourceMaximum, int targetMaximum) {

@@ -113,27 +113,9 @@ final class StarterSpawnSystem {
             return;
         }
         StarterConfig config = configs.get(defaultGeneration);
-        if (config == null || !config.enabled || !hasStarted(player, config.generation)) {
-            return;
-        }
-        if (isValidated(player, config.generation)) {
-            String generationDimension = "cobbleventure:generation_" + config.generation;
-            BlockPos current = player.blockPosition();
-            if (!player.serverLevel().dimension().location().toString()
-                    .equals(generationDimension)
-                || !player.serverLevel().getBlockState(current.below()).isAir()) {
-                return;
-            }
-            BuildingRuntimeSystem.SpawnDestination repair =
-                CobbleventureBootstrap.resolveStarterSpawn(player.getServer(), config);
-            if (repair != null) {
-                LOGGER.warn(
-                    "Repairing unsupported multiplayer starter position: player={}, current={}",
-                    player.getGameProfile().getName(), current
-                );
-                move(player, repair, config.setRespawn);
-                CobbleventureBootstrap.markPlayerStarted(player);
-            }
+        if (config == null || !config.enabled || !needsStarterValidationOnLogin(
+            hasStarted(player, config.generation), isValidated(player, config.generation)
+        )) {
             return;
         }
         BuildingRuntimeSystem.SpawnDestination destination =
@@ -159,6 +141,13 @@ final class StarterSpawnSystem {
             move(player, destination, config.setRespawn);
         }
         markValidated(player, config.generation);
+    }
+
+    static boolean needsStarterValidationOnLogin(boolean started, boolean validated) {
+        // A validated starter arrival is a completed one-shot migration. In particular,
+        // the block below a returning player is not evidence that their saved position is
+        // corrupt: mounted, flying, falling, or not-yet-loaded players can all be over air.
+        return started && !validated;
     }
 
     private static void onChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {

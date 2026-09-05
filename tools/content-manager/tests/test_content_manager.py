@@ -156,7 +156,26 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertTrue(any(
             issue.path == "$.npc_placement.required_slots"
-            and "NPC 6명" in issue.message
+            and "NPC 12명" in issue.message
+            for issue in issues
+        ), issues)
+
+    def test_cooperative_generated_encounters_require_two_npc_slots_each(self) -> None:
+        document = json.loads((
+            PROJECT_ROOT / "content/dungeons/generation_1/rocket_casino_hideout.json"
+        ).read_text(encoding="utf-8"))
+        document["npc_placement"] = {
+            "capacity_mode": "fixed", "required_slots": 11,
+            "minimum_spacing": 4,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, issues = content_manager.validate_dungeon_file(path)
+
+        self.assertTrue(any(
+            issue.path == "$.npc_placement.required_slots"
+            and "NPC 12명" in issue.message
             for issue in issues
         ), issues)
 
@@ -228,6 +247,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('name="npcCapacityMode"', markup)
         self.assertIn('name="npcRequiredSlots"', markup)
         self.assertIn('name="npcMinimumSpacing"', markup)
+        self.assertIn('document.multiplayer?.mode === "cooperative" ? 2 : 1', script)
+        self.assertIn('cooperative_battle: generatedActorCount === 2', script)
+        self.assertIn('협력 던전에서는 자동 조우 하나마다 NPC 두 명', script)
         self.assertIn('name="showInPokefinder"', markup)
         self.assertIn('document.show_in_pokefinder !== false', script)
         self.assertIn('document.show_in_pokefinder = form.elements.showInPokefinder.checked', script)
@@ -5386,6 +5408,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('name="npcExpectedLevel"', page)
         self.assertIn('name="npcPreferredBiomes"', page)
         self.assertIn('name="autoPlaceNpcs"', page)
+        self.assertIn('id="add-fixed-town-npc"', page)
+        self.assertIn('id="fixed-town-npc-list"', page)
         for scope in ("route", "cave", "forest", "settlement"):
             self.assertIn(f'data-trainer-population="{scope}"', page)
             self.assertIn(f'id="{scope}-auto-npc-preview"', page)
@@ -5399,6 +5423,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("trainerPartyStrip(trainer)", script)
         self.assertIn("trainer-pool-heading", script)
         self.assertIn("trainerPartyStrip(slot.trainer_id)", script)
+        self.assertIn("function renderFixedTownNpcs()", script)
+        self.assertIn("function addFixedTownNpc()", script)
+        self.assertIn("state.settlement.npc_placement.fixed_npcs", script)
+        self.assertIn(".fixed-town-npc-row", styles)
         self.assertIn("지역 기본 조우 정책", script)
         self.assertIn("data-direct-trainer-policy", script)
         self.assertIn("trainer_trigger_overrides", script)

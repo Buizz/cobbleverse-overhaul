@@ -18,12 +18,28 @@ public final class PinnedPokefinderHud {
     private static final Path STATE_FILE = stateFile();
     private static final ThreadLocal<Boolean> INTEGRATED_RENDER =
         ThreadLocal.withInitial(() -> false);
-    private static State state = load(STATE_FILE);
+    private static State state = new State(false, load(STATE_FILE).position());
+    private static volatile boolean pokenavAvailable;
 
     private PinnedPokefinderHud() {}
 
     public static boolean enabled() {
-        return state.enabled();
+        return pokenavAvailable && state.enabled();
+    }
+
+    public static boolean pokenavAvailable() {
+        return pokenavAvailable;
+    }
+
+    public static void setPokenavAvailable(boolean available) {
+        pokenavAvailable = available;
+        if (!available) state = new State(false, state.position());
+    }
+
+    public static void resetSession() {
+        pokenavAvailable = false;
+        state = new State(false, state.position());
+        RadarMarkerSnapshot.clear();
     }
 
     public static PokefinderHudPosition position() {
@@ -31,8 +47,8 @@ public final class PinnedPokefinderHud {
     }
 
     public static boolean toggleEnabled() {
+        if (!pokenavAvailable) return false;
         state = new State(!state.enabled(), state.position());
-        save(STATE_FILE, state);
         return state.enabled();
     }
 
@@ -43,8 +59,8 @@ public final class PinnedPokefinderHud {
     }
 
     public static void cycle() {
+        if (!pokenavAvailable) return;
         state = next(state);
-        save(STATE_FILE, state);
     }
 
     static State next(State current) {
@@ -84,7 +100,7 @@ public final class PinnedPokefinderHud {
 
     static boolean shouldRenderPinned(Minecraft minecraft) {
         LocalPlayer player = minecraft.player;
-        return state.enabled()
+        return pokenavAvailable && state.enabled()
             && minecraft.screen == null
             && player != null
             && CobblenavClient.INSTANCE.getPokefinderSettings() != null;

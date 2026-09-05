@@ -26,7 +26,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative static radar marker snapshots. */
 public final class RadarMarkerNetwork {
-    private static final String VERSION = "3";
+    private static final String VERSION = "4";
     private static final int SYNC_INTERVAL_TICKS = 20;
     private static final int MAX_MARKERS = 2_048;
     private static final Map<UUID, SnapshotPayload> LAST_SENT = new HashMap<>();
@@ -71,7 +71,8 @@ public final class RadarMarkerNetwork {
 
     private static void sync(ServerPlayer player, boolean force) {
         SnapshotPayload payload = new SnapshotPayload(
-            WorldBootstrapRadarProvider.markers(player)
+            WorldBootstrapRadarProvider.markers(player),
+            PokenavAccess.hasPokenav(player)
         );
         if (!force && payload.equals(LAST_SENT.get(player.getUUID()))) return;
         LAST_SENT.put(player.getUUID(), payload);
@@ -79,17 +80,19 @@ public final class RadarMarkerNetwork {
     }
 
     private static void handleSnapshot(SnapshotPayload payload, IPayloadContext context) {
-        ClientHandler.apply(payload.markers());
+        ClientHandler.apply(payload.markers(), payload.pokenavAvailable());
     }
 
     /** Kept nested so dedicated servers never initialize the client snapshot class. */
     private static final class ClientHandler {
-        private static void apply(List<RadarMarker> markers) {
+        private static void apply(List<RadarMarker> markers, boolean pokenavAvailable) {
             RadarMarkerSnapshot.replace(markers);
+            dev.buizz.cobbleventure.pokefinder.client.PinnedPokefinderHud
+                .setPokenavAvailable(pokenavAvailable);
         }
     }
 
-    private record SnapshotPayload(List<RadarMarker> markers)
+    private record SnapshotPayload(List<RadarMarker> markers, boolean pokenavAvailable)
         implements CustomPacketPayload {
         private static final Type<SnapshotPayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(
@@ -123,6 +126,7 @@ public final class RadarMarkerNetwork {
                 buffer.writeDouble(marker.localRange());
                 buffer.writeBoolean(marker.edgeTracking());
             }
+            buffer.writeBoolean(pokenavAvailable);
         }
 
         private static SnapshotPayload read(RegistryFriendlyByteBuf buffer) {
@@ -150,7 +154,7 @@ public final class RadarMarkerNetwork {
                     state, areaId, localRange, edgeTracking
                 ));
             }
-            return new SnapshotPayload(markers);
+            return new SnapshotPayload(markers, buffer.readBoolean());
         }
 
         @Override

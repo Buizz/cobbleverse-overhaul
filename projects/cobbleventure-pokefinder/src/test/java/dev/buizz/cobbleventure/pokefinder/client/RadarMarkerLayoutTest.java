@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 final class RadarMarkerLayoutTest {
     @Test
-    void keepsAndFansOutEveryOverlappingMarker() {
+    void keepsOverlappingMarkersAtTheirTruePosition() {
         var point = point(50.0D, 50.0D);
         List<RadarMarkerLayout.Placed> placed = RadarMarkerLayout.resolve(List.of(
             candidate(marker("gate", RadarMarkerType.GATE, 200), point),
@@ -22,7 +22,7 @@ final class RadarMarkerLayoutTest {
 
         assertEquals(3, placed.size());
         assertEquals(3, placed.stream().map(value -> value.marker().type()).distinct().count());
-        assertEquals(3, placed.stream().map(RadarMarkerLayout.Placed::point).distinct().count());
+        assertEquals(1, placed.stream().map(RadarMarkerLayout.Placed::point).distinct().count());
     }
 
     @Test

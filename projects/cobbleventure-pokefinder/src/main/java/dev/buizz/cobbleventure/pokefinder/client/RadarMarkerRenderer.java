@@ -6,12 +6,14 @@ import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerState;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerType;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarRanges;
 import dev.buizz.cobbleventure.pokefinder.server.RadarIconSettings;
+import dev.buizz.cobbleventure.playermenu.client.MenuTheme;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 
@@ -29,7 +31,7 @@ public final class RadarMarkerRenderer {
     public static void render(GuiGraphics graphics) {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
-        if (player == null) return;
+        if (player == null || !PinnedPokefinderHud.pokenavAvailable()) return;
 
         Cobblenav233LayoutAdapter.radarLayout(minecraft).ifPresent(layout -> {
             List<RadarMarker> markers = new ArrayList<>(RadarMarkerSnapshot.markers());
@@ -48,6 +50,7 @@ public final class RadarMarkerRenderer {
             graphics.pose().scale(layout.scale(), layout.scale(), 1.0F);
             ResourceLocation dimension = player.level().dimension().location();
             Vec3 playerPosition = player.position();
+            MenuTheme theme = MenuTheme.load(minecraft);
             List<RadarMarkerLayout.Candidate> candidates = new ArrayList<>();
             for (RadarMarker marker : markers) {
                 if (!marker.dimension().equals(dimension)) continue;
@@ -72,6 +75,10 @@ public final class RadarMarkerRenderer {
             for (RadarMarkerLayout.Placed placed : RadarMarkerLayout.resolve(candidates)) {
                 drawMarkerIcon(graphics, layout, placed.marker(), placed.point());
                 drawOverlapIndicator(graphics, placed);
+                drawFarDistance(
+                    graphics, minecraft, theme, layout, placed.marker(),
+                    placed.point(), playerPosition
+                );
                 drawMarkerDetails(
                     graphics, minecraft, layout, placed.marker(),
                     placed.point(), playerPosition
@@ -79,6 +86,22 @@ public final class RadarMarkerRenderer {
             }
             graphics.pose().popPose();
         });
+    }
+
+    private static void drawFarDistance(
+        GuiGraphics graphics, Minecraft minecraft, MenuTheme theme,
+        Cobblenav233LayoutAdapter.Layout layout, RadarMarker marker,
+        Cobblenav233LayoutAdapter.RadarPoint point, Vec3 playerPosition
+    ) {
+        if (!point.edgePinned() || marker.type() == RadarMarkerType.OBJECTIVE) return;
+        double dx = marker.position().x - playerPosition.x;
+        double dz = marker.position().z - playerPosition.z;
+        Component distance = Component.literal(Math.round(Math.hypot(dx, dz)) + "m");
+        int y = Math.max(layout.top() + 1, (int)Math.floor(point.y()) - 12);
+        theme.drawCenteredText(
+            graphics, minecraft.font, distance, (int)Math.floor(point.x()), y,
+            MenuTheme.TextRole.CAPTION, theme.textOnAccent
+        );
     }
 
     private static RadarMarker playerMarker(AbstractClientPlayer player) {

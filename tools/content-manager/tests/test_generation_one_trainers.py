@@ -72,7 +72,7 @@ class GenerationOneTrainerTests(unittest.TestCase):
                 )
                 assigned[trainer_id] = region_path
 
-        self.assertEqual(85, len(assigned))
+        self.assertEqual(78, len(assigned))
 
     def test_viridian_forest_approaches_do_not_duplicate_forest_trainers(self) -> None:
         forest = load(CONTENT / "forests" / "generation_1" / "viridian_forest.json")
@@ -117,7 +117,7 @@ class GenerationOneTrainerTests(unittest.TestCase):
         self.assertEqual(23, len(route_paths))
         expanded_test_routes = {
             "route_custom_05": 12,
-            "route_custom_19": 17,
+            "route_custom_19": 10,
         }
         for route_path in route_paths:
             with self.subTest(route=route_path.stem):

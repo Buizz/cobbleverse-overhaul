@@ -348,10 +348,6 @@ public final class BagScreen extends Screen {
             assignShortcut(keyCode - GLFW.GLFW_KEY_1);
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_0 && selectedSlot != null) {
-            assignShortcut(9);
-            return true;
-        }
         if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
             scrollBy(-contentRows);
             return true;

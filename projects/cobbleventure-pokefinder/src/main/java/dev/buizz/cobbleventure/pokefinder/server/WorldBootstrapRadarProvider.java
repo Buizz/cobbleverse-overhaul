@@ -37,7 +37,7 @@ public final class WorldBootstrapRadarProvider {
             append(result, locations.invoke(null, player), player);
             append(result, npcLocations.invoke(null, player), player);
             append(result, objectiveLocations.invoke(null, player), player);
-            return List.copyOf(result);
+            return withoutNpcObjectiveDuplicates(result);
         } catch (ClassNotFoundException | NoSuchMethodException
                  | IllegalAccessException | InvocationTargetException error) {
             if (!failureLogged) {
@@ -46,6 +46,23 @@ public final class WorldBootstrapRadarProvider {
             }
             return List.of();
         }
+    }
+
+    static List<RadarMarker> withoutNpcObjectiveDuplicates(List<RadarMarker> markers) {
+        return markers.stream().filter(marker ->
+            marker.type() != RadarMarkerType.OBJECTIVE
+                || markers.stream().noneMatch(candidate ->
+                    isNpc(candidate.type())
+                        && candidate.dimension().equals(marker.dimension())
+                        && candidate.position().distanceToSqr(marker.position()) < 1.0D
+                )
+        ).toList();
+    }
+
+    private static boolean isNpc(RadarMarkerType type) {
+        return type == RadarMarkerType.TRAINER
+            || type == RadarMarkerType.GYM_LEADER
+            || type == RadarMarkerType.IMPORTANT_NPC;
     }
 
     static RadarMarkerType markerType(String kind) {

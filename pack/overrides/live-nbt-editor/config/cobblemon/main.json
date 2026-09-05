@@ -61,7 +61,7 @@
   "shinyRate": 8192.0,
   "shinyNoticeParticlesDistance": 24.0,
   "captureCalculator": "cobblemon",
-  "playerDamagePokemon": true,
+  "playerDamagePokemon": false,
   "appleLeftoversChance": 0.025,
   "maxRootsInArea": 9,
   "bigRootPropagationChance": 0.5,

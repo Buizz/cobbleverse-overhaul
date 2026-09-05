@@ -472,14 +472,26 @@ public final class BagNetwork {
     private static void handleUseOnPokemon(UseOnPokemonPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player)
             || !validSlot(payload.extended(), payload.slot())
-            || payload.partySlot() < 0 || payload.partySlot() >= 6
-            || PlayerExtensionsKt.getBattleState(player) != null) return;
+            || payload.partySlot() < 0 || payload.partySlot() >= 6) return;
         NonNullList<ItemStack> storage = BagStorage.load(player);
         ItemStack source = getStack(player, storage, payload.extended(), payload.slot());
         Pokemon pokemon = Cobblemon.INSTANCE.getStorage().getParty(player).get(payload.partySlot());
         if (source.isEmpty() || pokemon == null
-            || !(source.getItem() instanceof PokemonSelectingItem selectingItem)
-            || !selectingItem.canUseOnPokemon(source, pokemon)) return;
+            || !(source.getItem() instanceof PokemonSelectingItem selectingItem)) return;
+
+        var battleState = PlayerExtensionsKt.getBattleState(player);
+        if (battleState != null) {
+            var battlePokemon = battleState.getSecond().getPokemonList().stream()
+                .filter(candidate -> candidate.getEffectedPokemon().getUuid().equals(pokemon.getUuid()))
+                .findFirst().orElse(null);
+            if (battlePokemon == null
+                || !selectingItem.canUseOnBattlePokemon(source, battlePokemon)) return;
+            selectingItem.applyToBattlePokemon(player, source, battlePokemon);
+            finishMutation(player, storage, payload.extended());
+            return;
+        }
+
+        if (!selectingItem.canUseOnPokemon(source, pokemon)) return;
 
         ItemStack result = selectingItem.applyToPokemon(player, source, pokemon).getObject();
         setStack(player, storage, payload.extended(), payload.slot(), result);

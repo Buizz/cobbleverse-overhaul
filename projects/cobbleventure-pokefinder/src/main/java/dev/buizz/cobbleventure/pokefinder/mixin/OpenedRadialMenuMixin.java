@@ -6,6 +6,7 @@ import com.metacontent.cobblenav.client.gui.widget.radialmenu.OpenedRadialMenu;
 import com.metacontent.cobblenav.client.gui.widget.radialmenu.RadialPopupMenu;
 import com.metacontent.cobblenav.os.PokenavOS;
 import dev.buizz.cobbleventure.pokefinder.client.PokefinderRadarClient;
+import dev.buizz.cobbleventure.pokefinder.client.PinnedPokefinderHud;
 import java.util.List;
 import kotlin.Unit;
 import net.minecraft.resources.ResourceLocation;
@@ -38,7 +39,7 @@ abstract class OpenedRadialMenuMixin {
     ) {
         IconButton button = buttons.get(CONTACTS_BUTTON_INDEX);
         button.setTexture(POKEFINDER_ICON);
-        button.setDisabled(false);
+        button.setDisabled(!PinnedPokefinderHud.pokenavAvailable());
     }
 
     @Inject(method = "buttons$lambda$4", at = @At("HEAD"), cancellable = true)

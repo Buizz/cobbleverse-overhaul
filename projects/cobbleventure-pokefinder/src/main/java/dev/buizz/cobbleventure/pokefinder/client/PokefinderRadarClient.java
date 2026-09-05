@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import org.lwjgl.glfw.GLFW;
@@ -21,6 +22,8 @@ public final class PokefinderRadarClient {
     public static void register(IEventBus modBus) {
         modBus.addListener(PokefinderRadarClient::registerKeyMappings);
         NeoForge.EVENT_BUS.addListener(PokefinderRadarClient::onClientTick);
+        NeoForge.EVENT_BUS.addListener(PokefinderRadarClient::onLogin);
+        NeoForge.EVENT_BUS.addListener(PokefinderRadarClient::onLogout);
     }
 
     private static void registerKeyMappings(RegisterKeyMappingsEvent event) {
@@ -41,6 +44,12 @@ public final class PokefinderRadarClient {
     public static void cycleHud() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) return;
+        if (!PinnedPokefinderHud.pokenavAvailable()) {
+            minecraft.player.displayClientMessage(Component.translatable(
+                "message.cobbleventure_pokefinder.hud.missing_pokenav"
+            ), true);
+            return;
+        }
         PinnedPokefinderHud.cycle();
         String state = !PinnedPokefinderHud.enabled()
             ? "off"
@@ -48,5 +57,13 @@ public final class PokefinderRadarClient {
         minecraft.player.displayClientMessage(Component.translatable(
             "message.cobbleventure_pokefinder.hud." + state
         ), true);
+    }
+
+    private static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
+        PinnedPokefinderHud.resetSession();
+    }
+
+    private static void onLogin(ClientPlayerNetworkEvent.LoggingIn event) {
+        PinnedPokefinderHud.resetSession();
     }
 }

@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.adventure.TrainerBattleState;
 import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
 import dev.buizz.cobbleventure.adventure.quest.QuestService;
 import java.io.IOException;
@@ -52,7 +53,7 @@ final class NpcRadarLocationSystem {
             result.add(new RadarLocationCatalog.NpcLocation(
                 "npc/" + entity.getUUID(), kind, level.dimension().location(),
                 entity.getX(), entity.getY(), entity.getZ(), entity.getName().getString(),
-                "", radarState(kind, slug, state)
+                "", radarState(kind, slug, entity.getUUID(), player, state)
             ));
         }
         result.sort(java.util.Comparator.comparing(RadarLocationCatalog.NpcLocation::id));
@@ -139,14 +140,22 @@ final class NpcRadarLocationSystem {
     }
 
     private static String radarState(
-        RadarLocationCatalog.NpcKind kind, String slug, ServerPlayerEventState state
+        RadarLocationCatalog.NpcKind kind, String slug, UUID npcId,
+        ServerPlayer player, ServerPlayerEventState state
     ) {
+        if (kind == RadarLocationCatalog.NpcKind.TRAINER) {
+            return completionState(kind, TrainerBattleState.isDefeated(player, npcId));
+        }
         String flag = switch (kind) {
-            case TRAINER -> trainerFlag(slug);
+            case TRAINER -> null;
             case GYM_LEADER -> gymFlag(slug);
             case IMPORTANT_NPC -> rewardFlag(slug);
         };
-        if (flag == null || !state.flag(flag)) return "AVAILABLE";
+        return completionState(kind, flag != null && state.flag(flag));
+    }
+
+    static String completionState(RadarLocationCatalog.NpcKind kind, boolean completed) {
+        if (!completed) return "AVAILABLE";
         return kind == RadarLocationCatalog.NpcKind.IMPORTANT_NPC
             ? "COMPLETED" : "DEFEATED";
     }

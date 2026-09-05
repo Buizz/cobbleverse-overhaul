@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
+import dev.buizz.cobbleventure.playermenu.BagStorage;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -12,7 +13,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 
-/** Selects one of ten persistent bag shortcut slots. */
+/** Selects one persistent bag shortcut for each Minecraft hotbar slot. */
 final class BagShortcutSelectScreen extends Screen {
     private static final int PANEL_WIDTH = 252;
     private static final int PANEL_HEIGHT = 132;
@@ -40,7 +41,7 @@ final class BagShortcutSelectScreen extends Screen {
         panelY = (height - PANEL_HEIGHT) / 2;
         slotButtons.clear();
         List<ItemStack> assignments = BagNetwork.clientSnapshot().shortcuts();
-        for (int index = 0; index < 10; index++) {
+        for (int index = 0; index < BagStorage.SHORTCUT_COUNT; index++) {
             int column = index % 5;
             int row = index / 5;
             ItemStack assigned = index < assignments.size() ? assignments.get(index) : ItemStack.EMPTY;
@@ -80,10 +81,6 @@ final class BagShortcutSelectScreen extends Screen {
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode >= GLFW.GLFW_KEY_1 && keyCode <= GLFW.GLFW_KEY_9) {
             assign(keyCode - GLFW.GLFW_KEY_1);
-            return true;
-        }
-        if (keyCode == GLFW.GLFW_KEY_0) {
-            assign(9);
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);

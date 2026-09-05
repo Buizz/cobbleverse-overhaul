@@ -26,4 +26,19 @@ final class EventDialogueClientTest {
         assertTrue(EventDialogueClient.allowsExternalScreen(daycare, "transition"));
         assertFalse(EventDialogueClient.allowsExternalScreen(daycare, "say"));
     }
+
+    @Test
+    void playerMenuAndBagCanOpenDuringBattleAwait() {
+        String playerMenu =
+            "dev.buizz.cobbleventure.playermenu.client.PlayerMenuScreen";
+        String bag = "dev.buizz.cobbleventure.playermenu.client.BagScreen";
+        String battleTargetSelection =
+            "dev.buizz.cobbleventure.playermenu.client.BagPokemonSelectScreen";
+
+        assertTrue(EventDialogueClient.allowsExternalScreen(playerMenu, "battle"));
+        assertTrue(EventDialogueClient.allowsExternalScreen(bag, "battle"));
+        assertTrue(EventDialogueClient.allowsExternalScreen(battleTargetSelection, "battle"));
+        assertFalse(EventDialogueClient.allowsExternalScreen(playerMenu, "move"));
+        assertFalse(EventDialogueClient.allowsExternalScreen(bag, "transition"));
+    }
 }

@@ -65,6 +65,7 @@ public final class PlayerMenuScreen extends Screen {
     private final List<ModelWidget> partyModels = new ArrayList<>();
     private final List<Pokemon> partyPokemon = new ArrayList<>();
     private final MenuTheme menuTheme;
+    private final Screen parent;
     private int selectedIndex;
     private int menuX;
     private int menuY;
@@ -84,7 +85,15 @@ public final class PlayerMenuScreen extends Screen {
     private boolean closing;
 
     public PlayerMenuScreen() {
+        this(null);
+    }
+
+    PlayerMenuScreen(Screen parent) {
         super(Component.translatable("screen.cobbleventure_player_menu.title"));
+        this.parent = parent;
+        if (parent instanceof com.cobblemon.mod.common.client.gui.battle.BattleGUI) {
+            selectedIndex = PlayerMenuEntry.BAG.ordinal();
+        }
         menuTheme = MenuTheme.load(net.minecraft.client.Minecraft.getInstance());
         BagNetwork.requestSnapshot();
     }
@@ -202,7 +211,13 @@ public final class PlayerMenuScreen extends Screen {
         super.tick();
         if (closing && System.currentTimeMillis() - transitionStartedAt >= CLOSE_ANIMATION_MILLIS
             && minecraft != null) {
-            minecraft.setScreen(null);
+            if (parent instanceof com.cobblemon.mod.common.client.gui.battle.BattleGUI
+                && com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle() != null) {
+                com.cobblemon.mod.common.client.CobblemonClient.INSTANCE.getBattle().setMinimised(false);
+                minecraft.setScreen(parent);
+            } else {
+                minecraft.setScreen(null);
+            }
         }
     }
 

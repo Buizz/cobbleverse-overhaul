@@ -76,4 +76,8 @@ record GatePokemonConfig(
     boolean acceptsActivationItem(String usedItem) {
         return activationItem == null || activationItem.equals(usedItem);
     }
+
+    String poseWhileChallenged(boolean challenged) {
+        return challenged ? "stand" : pose;
+    }
 }

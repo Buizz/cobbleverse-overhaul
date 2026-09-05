@@ -18,7 +18,8 @@ import net.minecraft.world.item.ItemStack;
 public final class BagStorage {
     /** Sparse backing slots; normal 64-item stacks provide over 260,000 items of practical capacity. */
     public static final int SLOT_COUNT = 4096;
-    public static final int SHORTCUT_COUNT = 10;
+    /** One shortcut for each slot in Minecraft's nine-slot hotbar. */
+    public static final int SHORTCUT_COUNT = 9;
     private static final String ROOT_KEY = "cobbleventure_player_menu.bag";
     private static final String ITEMS_KEY = "Items";
     private static final String SHORTCUTS_KEY = "Shortcuts";

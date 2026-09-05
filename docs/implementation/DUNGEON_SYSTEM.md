@@ -339,7 +339,7 @@ DungeonEntrance
 | NPC 공간 | `minimum_spacing` | 서로 다른 NPC 사이의 최소 거리 | 프리셋 상속 |
 | 고정 NPC | `encounters[]` | 직접 만든 NPC·보스와 고정 배틀 | 보스·스토리 NPC |
 | NPC 진행 | `progression.encounter_order` | `boss_only`는 일반 NPC를 선택 조우로 두고 보스만 필수, `sequential`은 `requires` 순서대로 격파 | `boss_only` |
-| 자동 NPC | `generated_trainers.count` | 실행마다 생성할 NPC 최소·최대 수 | 자동 생성 시 필수 |
+| 자동 NPC | `generated_trainers.count` | 실행마다 생성할 자동 조우 최소·최대 수 | 자동 생성 시 필수 |
 | 자동 NPC | `appearance_pool` / `dialogue_pool` / `pokemon_pool` | 외형, 대사 쌍, 포켓몬을 서로 독립적으로 추첨 | 각각 한 항목 이상 |
 | 자동 NPC | `generated_trainers.team_size` | NPC 한 명이 가질 포켓몬의 최소·최대 수(1~6) | 자동 생성 시 필수 |
 | 자동 NPC | `generated_trainers.allow_duplicates` | 한 팀 안에서 같은 종의 중복 허용 여부 | `false` |
@@ -533,7 +533,7 @@ NPC 공동과 선택 곁가지는 이 축에서 수직으로 짧게 뻗으며, �
 
 공통 생성 순서는 다음과 같다.
 
-1. 고정 조우와 자동 NPC 최대 수를 합쳐 실제 배치 수를 먼저 계산한다. `fixed`로
+1. 고정 조우와 자동 NPC 최대 수를 합쳐 실제 배치 수를 먼저 계산한다. 협력 던전의 자동 조우는 한 조당 NPC 두 명으로 계산한다. `fixed`로
    지정한 추가 NPC 공간은 실제 배치 수와 분리된 예비 용량으로 취급한다.
 2. 공동의 실제 X/Z 크기를 16×16 점유 칸으로 환산해 소공동 1칸, 중형 공동 2~3칸,
    대공동 4칸 이상으로 자동 분류한다. 제작자가 크기 등급을 따로 입력하지 않는다.
@@ -858,7 +858,7 @@ NBT 조각과 공동 NBT는 명시적인 NPC 마커 여러 개 또는 NPC 배치
 | 고정 콘텐츠 | `encounters[]` | 던전 소유 NPC 또는 기존 NPC·배틀 프리셋을 정확한 한 조우로 저장 | 보스, 간부, 스토리 NPC |
 | 자동 NPC 생성 | `generated_trainers` | 전역 3개 풀을 조합해 설정된 수만큼 실행 전용 트레이너를 생성 | 조무래기, 반복 던전, 무작위 일반전 |
 
-자동 NPC는 내부 콘텐츠에 한 명씩 추가하지 않는다. `count` 범위에서 이번 실행의 NPC 수를 먼저 정하고, 각 NPC마다 `appearance_pool`, `dialogue_pool`에서 하나씩 고른 뒤 `pokemon_pool`과 `team_size` 범위로 팀을 만든다. 만들어진 NPC는 일반 NPC 마커에 분산 배치한다. 전투 종료·취소·시간 초과·던전 정리 때 실행 전용 트레이너 등록을 반드시 제거한다.
+자동 NPC는 내부 콘텐츠에 한 명씩 추가하지 않는다. `count` 범위에서 이번 실행의 자동 조우 수를 먼저 정한다. 일반 던전은 조우마다 NPC 한 명, `cooperative` 던전은 조우마다 NPC 두 명을 만들고 자동으로 협력 전투로 묶는다. 각 NPC의 외형과 포켓몬 팀은 풀에서 독립적으로 추첨하며, 조우 대사는 `dialogue_pool`에서 고른다. 만들어진 NPC는 일반 NPC 마커에 분산 배치한다. 전투 종료·취소·시간 초과·던전 정리 때 실행 전용 트레이너 등록을 반드시 제거한다.
 
 ```json
 {
@@ -992,6 +992,7 @@ NBT 조각과 공동 NBT는 명시적인 NPC 마커 여러 개 또는 NPC 배치
 
 - 참가자를 정확히 두 명으로 고정한다.
 - 조우의 `cooperative_battle: true`가 지정된 전투만 `doubles` 성격의 협동 조우로 만든다.
+- `cooperative` 던전에서 `generated_trainers`로 만든 자동 조우는 두 NPC와 `cooperative_battle: true`를 자동으로 구성한다.
 - `two_player_multi`에서는 플레이어 두 명과 상대 트레이너 두 명을 묶어 `GEN_9_MULTI`로 시작한다.
 - 협동 전투는 NPC와 배틀 프리셋을 정확히 두 개 지정해야 하며, 콘텐츠 관리 UI에서 체크할 때만 두 번째 트레이너 입력을 연다.
 - `cooperative_battle`이 없는 단독 NPC 조우는 시작한 플레이어가 진행하는 일반 전투로 유지한다.

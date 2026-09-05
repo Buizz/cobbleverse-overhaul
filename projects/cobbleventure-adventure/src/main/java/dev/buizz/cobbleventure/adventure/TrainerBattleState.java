@@ -1,6 +1,8 @@
 package dev.buizz.cobbleventure.adventure;
 
 import com.mojang.brigadier.CommandDispatcher;
+import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -14,6 +16,9 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
@@ -25,6 +30,12 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 public final class TrainerBattleState {
     static final String DIALOG_OBJECTIVE = "cv_npc_defeated";
     private static final String DATA_FILE = "cobbleventure_trainer_battles";
+    private static final String REGIONAL_NPC_TAG = "cobbleventure_regional_npc";
+    private static final String EVENT_BINDING_PREFIX = "cves_binding/";
+    private static final String GYM_LEADER_BINDING_PREFIX =
+        "cves_binding/cobbleventure/gym_leaders/";
+    private static final String PROXIMITY_TRIGGER_TAG = "cves_trigger/proximity";
+    private static final double GYM_STAFF_RADIUS = 64.0D;
 
     private TrainerBattleState() {
     }
@@ -70,6 +81,71 @@ public final class TrainerBattleState {
         return 1;
     }
 
+    private static void completeGymTrainers(
+        ServerPlayer player, UUID defeatedNpc, BattleData battleData
+    ) {
+        Entity leader = null;
+        ServerLevel gymLevel = null;
+        for (ServerLevel level : player.getServer().getAllLevels()) {
+            Entity candidate = level.getEntity(defeatedNpc);
+            if (candidate != null) {
+                leader = candidate;
+                gymLevel = level;
+                break;
+            }
+        }
+        if (leader == null || !isGymLeader(leader.getTags())) {
+            return;
+        }
+
+        UUID playerId = player.getUUID();
+        ServerPlayerEventState eventState = new ServerPlayerEventState(player);
+        Entity defeatedLeader = leader;
+        for (Entity trainer : gymLevel.getEntities(
+            (Entity) null,
+            leader.getBoundingBox().inflate(GYM_STAFF_RADIUS),
+            candidate -> candidate != defeatedLeader
+                && candidate.distanceToSqr(defeatedLeader) <= GYM_STAFF_RADIUS * GYM_STAFF_RADIUS
+                && isGymTrainer(candidate.getTags())
+        )) {
+            battleData.setDefeated(playerId, trainer.getUUID(), true);
+            String victoryFlag = trainerVictoryFlag(trainer.getTags());
+            if (victoryFlag != null) {
+                eventState.setFlag(victoryFlag, true);
+            }
+        }
+    }
+
+    static boolean isGymLeader(Set<String> tags) {
+        return tags.stream().anyMatch(tag -> tag.startsWith(GYM_LEADER_BINDING_PREFIX));
+    }
+
+    static boolean isGymTrainer(Set<String> tags) {
+        return tags.contains(REGIONAL_NPC_TAG)
+            && tags.contains(PROXIMITY_TRIGGER_TAG)
+            && trainerVictoryFlag(tags) != null;
+    }
+
+    static String trainerVictoryFlag(Set<String> tags) {
+        return tags.stream()
+            .filter(tag -> tag.startsWith(EVENT_BINDING_PREFIX))
+            .map(tag -> tag.substring(tag.lastIndexOf('/') + 1))
+            .filter(slug -> !slug.isBlank())
+            .map(slug -> "cobbleventure:flag/trainer/" + slug + "/defeated")
+            .findFirst()
+            .orElse(null);
+    }
+
+    static String gymLeaderVictoryFlag(Set<String> tags) {
+        return tags.stream()
+            .filter(tag -> tag.startsWith(GYM_LEADER_BINDING_PREFIX))
+            .map(tag -> tag.substring(tag.lastIndexOf('/') + 1))
+            .filter(slug -> !slug.isBlank())
+            .map(slug -> "cobbleventure:flag/gym/kanto/" + slug + "/defeated")
+            .findFirst()
+            .orElse(null);
+    }
+
     private static BattleData data(ServerPlayer player) {
         return player.getServer().overworld().getDataStorage().computeIfAbsent(
             new SavedData.Factory<>(BattleData::new, BattleData::load),
@@ -78,11 +154,53 @@ public final class TrainerBattleState {
     }
 
     public static boolean isDefeated(ServerPlayer player, UUID npc) {
-        return data(player).isDefeated(player.getUUID(), npc);
+        BattleData battleData = data(player);
+        UUID playerId = player.getUUID();
+        if (battleData.isDefeated(playerId, npc)) {
+            return true;
+        }
+        migrateClearedGymTrainers(player, npc, battleData);
+        return battleData.isDefeated(playerId, npc);
+    }
+
+    private static void migrateClearedGymTrainers(
+        ServerPlayer player, UUID trainerId, BattleData battleData
+    ) {
+        Entity trainer = player.serverLevel().getEntity(trainerId);
+        if (trainer == null || !isGymTrainer(trainer.getTags())) {
+            return;
+        }
+        Entity leader = player.serverLevel().getEntities(
+            (Entity) null,
+            trainer.getBoundingBox().inflate(GYM_STAFF_RADIUS),
+            candidate -> candidate.distanceToSqr(trainer) <= GYM_STAFF_RADIUS * GYM_STAFF_RADIUS
+                && isGymLeader(candidate.getTags())
+        ).stream().findFirst().orElse(null);
+        String leaderVictoryFlag = leader == null
+            ? null : gymLeaderVictoryFlag(leader.getTags());
+        if (leaderVictoryFlag != null
+            && new ServerPlayerEventState(player).flag(leaderVictoryFlag)) {
+            completeGymTrainers(player, leader.getUUID(), battleData);
+        }
     }
 
     public static void setDefeated(ServerPlayer player, UUID npc, boolean defeated) {
-        data(player).setDefeated(player.getUUID(), npc, defeated);
+        BattleData battleData = data(player);
+        battleData.setDefeated(player.getUUID(), npc, defeated);
+        if (defeated) {
+            completeGymTrainers(player, npc, battleData);
+        }
+    }
+
+    /** Preserves every player's result when duplicate persisted NPC entities are collapsed. */
+    public static void mergeNpcInstances(
+        MinecraftServer server, UUID retainedNpc, Collection<UUID> removedNpcs
+    ) {
+        if (removedNpcs.isEmpty()) return;
+        BattleData battleData = server.overworld().getDataStorage().computeIfAbsent(
+            new SavedData.Factory<>(BattleData::new, BattleData::load), DATA_FILE
+        );
+        battleData.mergeNpcInstances(retainedNpc, Set.copyOf(removedNpcs));
     }
 
     private static void setDialogScore(ServerPlayer player, int value) {
@@ -132,6 +250,16 @@ public final class TrainerBattleState {
             if (changed) {
                 setDirty();
             }
+        }
+
+        void mergeNpcInstances(UUID retainedNpc, Set<UUID> removedNpcs) {
+            Set<BattleKey> replacements = new HashSet<>();
+            boolean changed = defeated.removeIf(key -> {
+                if (!removedNpcs.contains(key.npc())) return false;
+                replacements.add(new BattleKey(key.player(), retainedNpc));
+                return true;
+            });
+            if (defeated.addAll(replacements) || changed) setDirty();
         }
 
         @Override

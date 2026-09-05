@@ -8,6 +8,17 @@ import org.junit.jupiter.api.Test;
 
 final class StarterSpawnSystemTest {
     @Test
+    void doesNotRevalidateACompletedStarterArrivalOnReconnect() {
+        assertFalse(StarterSpawnSystem.needsStarterValidationOnLogin(true, true));
+    }
+
+    @Test
+    void validatesOnlyAnIncompleteLegacyStarterArrival() {
+        assertTrue(StarterSpawnSystem.needsStarterValidationOnLogin(true, false));
+        assertFalse(StarterSpawnSystem.needsStarterValidationOnLogin(false, false));
+    }
+
+    @Test
     void acceptsLeavingTheBuildingInteriorAsAnExistingStarterArrival() {
         assertTrue(StarterSpawnSystem.isBuildingInteriorExit(
             ResourceLocation.parse("cobbleventure:building_interiors")

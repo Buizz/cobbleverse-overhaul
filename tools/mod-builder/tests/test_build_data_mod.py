@@ -22,6 +22,22 @@ sys.modules[SPEC.name] = build_data_mod
 SPEC.loader.exec_module(build_data_mod)
 
 
+class CobblemonSafetyConfigTests(unittest.TestCase):
+    def test_players_cannot_damage_pokemon_in_any_pack_profile(self) -> None:
+        for profile in ("development-placeholder", "live-nbt-editor"):
+            config = json.loads((
+                REPOSITORY_ROOT
+                / "pack"
+                / "overrides"
+                / profile
+                / "config"
+                / "cobblemon"
+                / "main.json"
+            ).read_text(encoding="utf-8"))
+            with self.subTest(profile=profile):
+                self.assertIs(False, config["playerDamagePokemon"])
+
+
 class ResidentialCatalogTests(unittest.TestCase):
     def fixture(self, root):
         structure = root / build_data_mod.CONTENT_ROOT / "structures/custom/cottage.nbt"
@@ -364,6 +380,22 @@ class FixedTownNpcPlacementTests(unittest.TestCase):
         # Exercise deduplication even if automatic population is enabled later.
         settlement["npc_placement"].update(auto_place_npcs=True, max_ambient_npcs=1)
         guide = "cobbleventure:npc/rewards/feature_map_guide"
+        resolved = build_data_mod._resolved_town_auto_npcs(
+            PROJECT_ROOT, settlement,
+            npc_profiles=[{"npc": guide, "classification": "ambient", "automatic_town_placement": True}],
+            world_levels={},
+        )
+        self.assertEqual([
+            {"npc": guide, "classification": "ambient", "placement_area": "outdoor"},
+        ], [entry for entry in resolved["placements"] if entry["npc"] == guide])
+        self.assertNotIn(guide, resolved["ambient"])
+
+    def test_cerulean_teleport_guide_is_packaged_once_outdoors(self) -> None:
+        path = PROJECT_ROOT / "content/settlements/generation_1/cerulean_city.json"
+        settlement = json.loads(path.read_text(encoding="utf-8"))
+        # Exercise deduplication even if automatic population is enabled later.
+        settlement["npc_placement"].update(auto_place_npcs=True, max_ambient_npcs=1)
+        guide = "cobbleventure:npc/rewards/feature_teleport_guide"
         resolved = build_data_mod._resolved_town_auto_npcs(
             PROJECT_ROOT, settlement,
             npc_profiles=[{"npc": guide, "classification": "ambient", "automatic_town_placement": True}],

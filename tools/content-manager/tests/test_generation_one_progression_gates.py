@@ -58,6 +58,18 @@ class GenerationOneProgressionGateTests(unittest.TestCase):
                 placements.append(settlement["id"])
         self.assertEqual(["cobbleventure:settlement/route_01_town"], placements)
 
+    def test_teleport_guide_is_fixed_inside_cerulean_and_never_a_gate_npc(self) -> None:
+        content = WORLD.parent.parent
+        world = json.loads(WORLD.read_text(encoding="utf-8"))
+        for item in world["objects"]:
+            self.assertNotIn("feature_teleport_guide", item.get("properties", {}).get("npc", ""))
+        placements = []
+        for path in (content / "settlements").rglob("*.json"):
+            settlement = json.loads(path.read_text(encoding="utf-8"))
+            if "cobbleventure:npc/rewards/feature_teleport_guide" in settlement.get("npc_placement", {}).get("fixed_npcs", []):
+                placements.append(settlement["id"])
+        self.assertEqual(["cobbleventure:settlement/cerulean_city"], placements)
+
 
 if __name__ == "__main__":
     unittest.main()

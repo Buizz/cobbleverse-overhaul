@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
+import dev.buizz.cobbleventure.playermenu.BagStorage;
 import dev.buizz.cobbleventure.playermenu.PlayerOverviewNetwork;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -19,7 +20,8 @@ import org.lwjgl.glfw.GLFW;
 final class PlayerMenuKeyMappings {
     private static final String CATEGORY = "key.categories.cobbleventure_player_menu";
     private static final Map<PlayerMenuEntry, KeyMapping> MAPPINGS = new EnumMap<>(PlayerMenuEntry.class);
-    private static final List<KeyMapping> BAG_SHORTCUT_MAPPINGS = new ArrayList<>(10);
+    private static final List<KeyMapping> BAG_SHORTCUT_MAPPINGS =
+        new ArrayList<>(BagStorage.SHORTCUT_COUNT);
     private static final KeyMapping ROCK_CLIMB_TOGGLE = new KeyMapping(
         "key.cobbleventure_player_menu.rock_climb_toggle", GLFW.GLFW_KEY_H, CATEGORY
     );
@@ -33,7 +35,7 @@ final class PlayerMenuKeyMappings {
         bind(PlayerMenuEntry.MAP, GLFW.GLFW_KEY_M);
         bind(PlayerMenuEntry.POKENAV, GLFW.GLFW_KEY_N);
         bind(PlayerMenuEntry.POKEDEX, GLFW.GLFW_KEY_K);
-        for (int slot = 1; slot <= 10; slot++) {
+        for (int slot = 1; slot <= BagStorage.SHORTCUT_COUNT; slot++) {
             BAG_SHORTCUT_MAPPINGS.add(new KeyMapping(
                 "key.cobbleventure_player_menu.bag_shortcut_" + slot, GLFW.GLFW_KEY_UNKNOWN, CATEGORY
             ));
