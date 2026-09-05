@@ -4868,6 +4868,8 @@ def validate_game_definitions_file(path: Path) -> list[Issue]:
                 _issue(issues, "error", path, f"{entry_path}.id", f"중복 선언 ID: {item_id}")
             seen_ids.add(item_id)
         _resource_id(entry.get("base_item"), issues, path, f"{entry_path}.base_item")
+        if entry.get("icon") not in (None, ""):
+            _resource_id(entry.get("icon"), issues, path, f"{entry_path}.icon")
         _localized_text(entry.get("display_name"), issues, path, f"{entry_path}.display_name")
         description = entry.get("description")
         if description is not None and (

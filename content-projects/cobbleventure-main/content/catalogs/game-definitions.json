@@ -5,12 +5,14 @@
     {
       "id": "cobbleventure_bootstrap:poke_flute",
       "base_item": "cobbleventure_bootstrap:poke_flute",
+      "icon": "cobbleventure_bootstrap:poke_flute",
       "display_name": { "ko_kr": "포켓몬 피리", "en_us": "Poké Flute" },
       "description": { "ko_kr": "잠든 잠만보 근처에서 사용하면 잠을 깨웁니다. 사용해도 사라지지 않습니다.", "en_us": "Use near a sleeping Snorlax to awaken it. Reusable." }
     },
     {
       "id": "cobbleventure_casino:coin_case",
       "base_item": "cobbleventure_casino:coin_case",
+      "icon": "cobbleventure_casino:coin_case",
       "display_name": {
         "ko_kr": "동전케이스",
         "en_us": "Coin Case"

@@ -31,6 +31,7 @@ class GameDefinitionTests(unittest.TestCase):
             "items": [{
                 "id": "cobbleventure:item/quest_letter",
                 "base_item": "minecraft:paper",
+                "icon": "minecraft:writable_book",
                 "display_name": {"ko_kr": "박사의 편지"},
                 "description": {"ko_kr": "NPC 분기에 사용하는 퀘스트 아이템"},
             }],
@@ -51,12 +52,28 @@ class GameDefinitionTests(unittest.TestCase):
         self.assertTrue(any("중복 선언 ID" in issue.message for issue in issues))
         self.assertTrue(any(issue.path == "$.variables[0].default" for issue in issues))
 
+    def test_invalid_optional_item_icon_is_rejected(self):
+        payload = {
+            "schema_version": 1,
+            "items": [{
+                "id": "cobbleventure:item/quest_letter",
+                "base_item": "minecraft:paper",
+                "icon": "not a resource id",
+                "display_name": {"ko_kr": "박사의 편지"},
+            }],
+            "variables": [],
+        }
+        issues = self.validate(payload)
+        self.assertTrue(any(issue.path == "$.items[0].icon" for issue in issues))
+
     def test_web_exposes_definition_screen_and_npc_datalists(self):
         page = (ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
         script = (ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('data-section="definitions"', page)
         self.assertIn('id="game-item-list"', page)
         self.assertIn('id="game-variable-list"', page)
+        self.assertIn('class="button secondary definition-add-button"', page)
+        self.assertIn('data-definition-field="icon"', script)
         self.assertIn('list="declared-item-ids"', script)
         self.assertIn('list="declared-variable-ids"', script)
 
