@@ -690,6 +690,9 @@
         "battle": {
           "type": "string",
           "pattern": "^[a-z0-9_.-]+:battle/[a-z0-9_./-]+$"
+        },
+        "inline_battle": {
+          "$ref": "content-bundle.schema.json#/$defs/battle"
         }
       }
     },

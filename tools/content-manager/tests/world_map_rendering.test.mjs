@@ -76,6 +76,22 @@ test('canvas renderer applies one transform and draws all visible tiles', () => 
   assert.ok(calls.some(([name])=>name==='fillText'));
 });
 
+test('populated canvas tiles keep their biome color instead of the underlying empty terrain color', () => {
+  const fills=[];
+  const context=new Proxy({}, {get(target,key) {
+    if (!(key in target)) target[key]=()=>{};
+    return target[key];
+  },set(target,key,value){if(key==='fillStyle')fills.push(value);target[key]=value;return true;}});
+  const hatchContext={beginPath(){},moveTo(){},lineTo(){},stroke(){}};
+  const canvas={width:0,height:0,dataset:{},ownerDocument:{createElement:()=>({getContext:()=>hatchContext})},getContext:()=>context};
+  drawWorldMapTiles(canvas,{x:0,y:0,width:100,height:100},{width:100,height:100},[
+    {x:20,y:20,radius:8,tone:'water',isEmpty:false,emptyFill:'#66836b'},
+    {x:40,y:20,radius:8,tone:'forest',isEmpty:true,emptyFill:'#274e32',symbol:'♠'},
+  ],{pixelRatio:1});
+  assert.equal(fills[0],'#78add0');
+  assert.equal(fills[1],'#274e32');
+});
+
 test('editor observes its viewport, uses a canvas tile layer and delegates activation', () => {
   const source=readFileSync(new URL('../web/app.js',import.meta.url),'utf8');
   const markup=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');

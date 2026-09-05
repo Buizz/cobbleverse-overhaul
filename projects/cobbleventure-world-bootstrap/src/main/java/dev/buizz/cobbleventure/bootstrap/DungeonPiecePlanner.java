@@ -49,8 +49,7 @@ final class DungeonPiecePlanner {
             )
         );
         validateRequiredChambers(byId, settings.requiredChamberPieces());
-        if (settings.verticalMode().equals("discrete_floors")
-            && settings.floorChangesMax() > 0) {
+        if (settings.verticalMode().equals("discrete_floors")) {
             return generateSeparateFloors(
                 pieces, settings, seed, deadlineNanos
             );
@@ -159,10 +158,13 @@ final class DungeonPiecePlanner {
                         .filter(piece -> !piece.role().equals("room")
                             || floorChamberCount > 0)
                         .toList();
+                    int tailCapacityCount = floor == floorCount - 1
+                        ? settings.tailCapacityCount() : 0;
                     FloorResult result = generateFloor(
                         floorPieces, settings, allocation.placementCounts().get(floor),
                         floorChamberCount, floor == 0,
-                        floor == floorCount - 1, floorBranches, floorRandom,
+                        floor == floorCount - 1, floorBranches, tailCapacityCount,
+                        floorRandom,
                         new SearchBudget(deadlineNanos, MAX_SEARCH_NODES_PER_ATTEMPT)
                     );
                     if (result == null) {
@@ -190,17 +192,20 @@ final class DungeonPiecePlanner {
         // Every floor needs enough path depth for its routes. Ordinary chamber
         // pieces are opt-in through requiredChamberPieces; start, boss and exit
         // remain structural endpoints.
-        int minimumPlacements = floorCount * 10 + 1;
+        int minimumPlacements = floorCount * 6 + 1;
         int requested = randomRange(
             random, settings.criticalPathMin(), settings.criticalPathMax()
         );
-        int total = Math.max(
-            requested, minimumPlacements
+        int tailCapacity = Math.min(
+            settings.tailCapacityCount(), Math.max(0, requested - minimumPlacements)
+        );
+        int distributedTotal = Math.max(
+            requested - tailCapacity, minimumPlacements
         );
         List<Integer> counts = new ArrayList<>();
         List<Long> occupiedCells = new ArrayList<>();
         for (int floor = 0; floor < floorCount; floor++) {
-            int base = floor == floorCount - 1 ? 11 : 10;
+            int base = floor == floorCount - 1 ? 7 : 6;
             counts.add(base);
             occupiedCells.add((long) base);
         }
@@ -215,13 +220,14 @@ final class DungeonPiecePlanner {
             chamberCounts.set(target, chamberCounts.get(target) + 1);
             occupiedCells.set(target, occupiedCells.get(target) + 1L);
         }
-        for (int remaining = total - counts.stream().mapToInt(Integer::intValue).sum();
+        for (int remaining = distributedTotal - counts.stream().mapToInt(Integer::intValue).sum();
              remaining > 0; remaining--) {
             int floor = java.util.stream.IntStream.range(0, floorCount)
                 .boxed().min(Comparator.comparingLong(occupiedCells::get)).orElseThrow();
             counts.set(floor, counts.get(floor) + 1);
             occupiedCells.set(floor, occupiedCells.get(floor) + 1L);
         }
+        counts.set(floorCount - 1, counts.getLast() + tailCapacity);
         return new FloorAllocation(
             List.copyOf(counts), List.copyOf(chamberCounts)
         );
@@ -235,13 +241,15 @@ final class DungeonPiecePlanner {
         boolean firstFloor,
         boolean lastFloor,
         int branchCount,
+        int tailCapacityCount,
         Random random,
         SearchBudget budget
     ) {
         for (int attempt = 0; attempt < 32; attempt++) {
             FloorResult result = generateFloorAttempt(
                 pieces, settings, placementCount, chamberCount,
-                firstFloor, lastFloor, branchCount, random, budget
+                firstFloor, lastFloor, branchCount, tailCapacityCount,
+                random, budget
             );
             if (result != null) return result;
         }
@@ -256,6 +264,7 @@ final class DungeonPiecePlanner {
         boolean firstFloor,
         boolean lastFloor,
         int branchCount,
+        int tailCapacityCount,
         Random random,
         SearchBudget budget
     ) {
@@ -291,12 +300,16 @@ final class DungeonPiecePlanner {
             roles.add("corridor");
         }
         int ordinarySlots = Math.max(0, roles.size() - ending - 1);
-        if (chamberCount > ordinarySlots) return null;
+        int chamberSlots = Math.max(0, ordinarySlots - tailCapacityCount);
+        if (chamberCount > chamberSlots) return null;
+        for (int tail = 0; tail < tailCapacityCount; tail++) {
+            roles.set(roles.size() - ending - 1 - tail, "corridor");
+        }
         for (int chamber = 0; chamber < chamberCount; chamber++) {
             int slot = 1 + (int) Math.floor(
-                (chamber + 1.0D) * ordinarySlots / (chamberCount + 1.0D)
+                (chamber + 1.0D) * chamberSlots / (chamberCount + 1.0D)
             );
-            roles.set(Math.min(roles.size() - ending - 1, slot), "room");
+            roles.set(Math.min(roles.size() - ending - 1 - tailCapacityCount, slot), "room");
         }
         State state = new State();
         StartChoice start = floorStart(
@@ -1764,7 +1777,8 @@ final class DungeonPiecePlanner {
         int floorHeight,
         List<String> requiredChamberPieces,
         int chamberCount,
-        boolean exactChamberCount
+        boolean exactChamberCount,
+        int tailCapacityCount
     ) {
         Settings {
             requiredChamberPieces = requiredChamberPieces == null
@@ -1781,7 +1795,7 @@ final class DungeonPiecePlanner {
                 bounds, criticalPathMin, criticalPathMax,
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, "corridor_spine", "mixed", 0, 256,
-                "continuous", 8, List.of(), 0, false
+                "continuous", 8, List.of(), 0, false, 0
             );
         }
 
@@ -1795,7 +1809,7 @@ final class DungeonPiecePlanner {
                 bounds, criticalPathMin, criticalPathMax,
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, "mixed", 0, 256,
-                "continuous", 8, List.of(), 0, false
+                "continuous", 8, List.of(), 0, false, 0
             );
         }
 
@@ -1811,7 +1825,7 @@ final class DungeonPiecePlanner {
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, verticalDirection,
                 floorChangesMin, floorChangesMax, "continuous", 8,
-                List.of(), 0, false
+                List.of(), 0, false, 0
             );
         }
 
@@ -1828,7 +1842,7 @@ final class DungeonPiecePlanner {
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, verticalDirection,
                 floorChangesMin, floorChangesMax, verticalMode, floorHeight,
-                List.of(), 0, false
+                List.of(), 0, false, 0
             );
         }
 
@@ -1848,7 +1862,7 @@ final class DungeonPiecePlanner {
                 floorChangesMin, floorChangesMax, verticalMode, floorHeight,
                 requiredChamberPieces,
                 requiredChamberPieces == null ? 0 : requiredChamberPieces.size(),
-                false
+                false, 0
             );
         }
 
@@ -1866,7 +1880,26 @@ final class DungeonPiecePlanner {
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, verticalDirection,
                 floorChangesMin, floorChangesMax, verticalMode, floorHeight,
-                requiredChamberPieces, chamberCount, false
+                requiredChamberPieces, chamberCount, false, 0
+            );
+        }
+
+        Settings(
+            BlockPos bounds, int criticalPathMin, int criticalPathMax,
+            int branchCountMin, int branchCountMax,
+            int branchDepthMin, int branchDepthMax,
+            double loopChance, int maxAttempts, String layoutMode,
+            String verticalDirection, int floorChangesMin, int floorChangesMax,
+            String verticalMode, int floorHeight,
+            List<String> requiredChamberPieces, int chamberCount,
+            boolean exactChamberCount
+        ) {
+            this(
+                bounds, criticalPathMin, criticalPathMax,
+                branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
+                loopChance, maxAttempts, layoutMode, verticalDirection,
+                floorChangesMin, floorChangesMax, verticalMode, floorHeight,
+                requiredChamberPieces, chamberCount, exactChamberCount, 0
             );
         }
 
@@ -1888,6 +1921,7 @@ final class DungeonPiecePlanner {
                 || requiredChamberPieces.size()
                     != new HashSet<>(requiredChamberPieces).size()
                 || chamberCount < 0
+                || tailCapacityCount < 0
                 || !Set.of(
                     "corridor_spine", "hub_and_spokes", "room_network",
                     "legacy_maze", "legacy_rooms_and_corridors",

@@ -39,7 +39,7 @@ const structureViewPitch = {
 const state = {
   project: null,
   trainers: [], battles: [], routes: [], settlements: [], caves: [], dungeons: [], "underground-roads": [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, dungeon: null, undergroundRoad: null, forest: null, settlementOrderSaving: false, settlementLoading: { path: "", requestId: 0 },
-  dungeonPath: "", dungeonPlans: new Map(), dungeonPlanPaths: new Map(), dungeonPieces: new Map(), dungeonPiecePaths: new Map(), dungeonPieceId: "", dungeonPieceTheme: "", dungeonPieceCatalogMode: "pieces", dungeonDirty: false, dungeonPlanDirty: false, dungeonPieceDirty: false, dungeonContentSelection: null, dungeonPieceEditor: { selectedKind: "", selectedIndex: -1, transform: null }, dungeonPlanEditor: { selectedPlacement: -1, drag: null }, dungeonPreview: { seed: 1, planId: "", floor: "all", selected: -1, hitTargets: [], plan: null, transform: null, zoom: 1, panX: 0, panY: 0, panDrag: null, suppressClick: false },
+  dungeonPath: "", dungeonPlans: new Map(), dungeonPlanPaths: new Map(), dungeonPieces: new Map(), dungeonPiecePaths: new Map(), dungeonRewardTables: new Map(), dungeonRewardTablePaths: new Map(), dungeonRewardDirty: new Set(), dungeonPieceId: "", dungeonPieceTheme: "", dungeonPieceCatalogMode: "pieces", dungeonDirty: false, dungeonPlanDirty: false, dungeonPieceDirty: false, dungeonContentSelection: null, dungeonTeamActorIndex: 0, dungeonPieceEditor: { selectedKind: "", selectedIndex: -1, transform: null }, dungeonPlanEditor: { selectedPlacement: -1, drag: null }, dungeonPreview: { seed: 1, planId: "", floor: "all", selected: -1, hitTargets: [], plan: null, transform: null, zoom: 1, panX: 0, panY: 0, panDrag: null, suppressClick: false },
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
   trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", undergroundRoadPath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
@@ -1131,6 +1131,8 @@ async function loadLists() {
     state.dungeonPlanPaths = new Map((dungeons.data.plans || []).map((item) => [item.id, item.path]));
     state.dungeonPieces = new Map((dungeons.data.pieces || []).map((item) => [item.id, item.document]));
     state.dungeonPiecePaths = new Map((dungeons.data.pieces || []).map((item) => [item.id, item.path]));
+    state.dungeonRewardTables = new Map((dungeons.data.reward_tables || []).map((item) => [item.id, item.document]));
+    state.dungeonRewardTablePaths = new Map((dungeons.data.reward_tables || []).map((item) => [item.id, item.path]));
     renderDungeonList();
     const errors = dungeons.data.errors || [];
     $("#dungeon-issues").className = errors.length ? "issues" : "issues empty";
@@ -3012,7 +3014,7 @@ function renderHexMapFrame() {
     const isEmpty = !townArea && !tile;
     return {
       key, q, r, x, y, radius: mapHexSize() - 2, tone, selected, environment: Boolean(environment), route: Boolean(route),
-      isEmpty, emptyType, emptyFill: ({ high_forest: "#66836b", dense_forest: "#274e32", ocean: "#70a9c4", deep_ocean: "#5e91ae", desert: "#d2a15f", stone_mountain: "#918f8a", snow_mountain: "#c6dce2" })[emptyType],
+      isEmpty, emptyType, emptyFill: isEmpty ? ({ high_forest: "#66836b", dense_forest: "#274e32", ocean: "#70a9c4", deep_ocean: "#5e91ae", desert: "#d2a15f", stone_mountain: "#918f8a", snow_mountain: "#c6dce2" })[emptyType] : null,
       symbol: emptyTerrainSymbol(emptyType), hasTile: Boolean(tile), townArea: Boolean(townArea), label,
     };
   });
@@ -5348,6 +5350,7 @@ function renderDungeonList() {
     state.dungeon = item.document;
     state.dungeonPath = item.path;
     state.dungeonDirty = false;
+    state.dungeonRewardDirty.clear();
     state.dungeonPlanDirty = false;
     state.dungeonContentSelection = null;
     state.dungeonPlanEditor.selectedPlacement = -1;
@@ -5579,26 +5582,70 @@ function dungeonOrdinaryNpcDemand(document) {
 
 function dungeonNpcChamberCandidates(document) {
   const selected = new Set(dungeonSpatialLayout(document).chamber_pieces || []);
-  const encounterSized = document.npc_placement?.capacity_mode === "from_encounters";
+  const needsNpcCapacity = Boolean(document.npc_placement);
   return [...state.dungeonPieces.values()].filter((piece) => selected.has(piece.piece_id)
-    && (!encounterSized || (piece.markers || []).some((marker) => marker.kind === "npc_spawn")));
+    && (!needsNpcCapacity || dungeonPieceNpcCapacity(piece, document.npc_placement?.minimum_spacing) > 0));
+}
+
+function dungeonPieceNpcCapacity(piece, minimumSpacing = 4) {
+  const positions = (piece?.markers || []).filter((marker) => marker.kind === "npc_spawn")
+    .map((marker) => (marker.position || [0, 0, 0]).map(Number));
+  const spacingSquared = Math.max(0, Number(minimumSpacing ?? 4)) ** 2;
+  const maximumCompatible = (index, selected) => {
+    if (index >= positions.length) return selected.length;
+    let best = maximumCompatible(index + 1, selected);
+    const candidate = positions[index];
+    if (selected.every((position) => position.reduce((sum, value, axis) => sum + (value - candidate[axis]) ** 2, 0) >= spacingSquared)) {
+      selected.push(candidate);
+      best = Math.max(best, maximumCompatible(index + 1, selected));
+      selected.pop();
+    }
+    return best;
+  };
+  return maximumCompatible(0, []);
+}
+
+function dungeonGenerationRequirements(document, floorCountOverride) {
+  const actorDemand = dungeonNpcActorDemand(document);
+  const ordinaryActorDemand = dungeonOrdinaryNpcDemand(document);
+  const vertical = dungeonVertical(document);
+  const floorRange = dungeonRange(vertical.floor_count, [1, 1]);
+  const floorCount = vertical.mode === "flat" ? 1
+    : Math.max(1, Number(floorCountOverride || floorRange[1]));
+  const chambers = dungeonNpcChamberCandidates(document);
+  const capacities = chambers.map((piece) => dungeonPieceNpcCapacity(piece, document.npc_placement?.minimum_spacing));
+  const chamberCapacity = capacities.length ? Math.min(...capacities) : 0;
+  let chamberCount = 0;
+  if (!document.npc_placement && chambers.length) chamberCount = floorCount;
+  else if (ordinaryActorDemand > 0 && chamberCapacity > 0) {
+    chamberCount = Math.max(Math.min(floorCount, ordinaryActorDemand), Math.ceil(ordinaryActorDemand / chamberCapacity));
+    chamberCount = Math.min(chamberCount, ordinaryActorDemand);
+  }
+  const requiredCapacity = !document.npc_placement ? 0
+    : document.npc_placement.capacity_mode === "fixed"
+    ? Math.max(actorDemand, Number(document.npc_placement.required_slots || 0)) : actorDemand;
+  const floorStructureMinimum = vertical.mode === "discrete_floors" ? floorCount * 6 + 1 : 3;
+  const chamberCadenceMinimum = chamberCount ? 3 + chamberCount + Math.max(0, chamberCount - 1) * 2 : 3;
+  const topologyRange = dungeonRange(dungeonTopology(document).critical_path_rooms, [6, 8]);
+  const baseCriticalMinimum = Math.max(topologyRange[0], floorStructureMinimum, chamberCadenceMinimum);
+  const estimatedPassageCapacity = Math.max(0, baseCriticalMinimum - 3 - chamberCount);
+  const estimatedCapacity = chamberCount * chamberCapacity + estimatedPassageCapacity;
+  const additionalPassages = document.npc_placement ? Math.max(0, requiredCapacity - estimatedCapacity) : 0;
+  return {
+    actorDemand, ordinaryActorDemand, requiredCapacity,
+    reservedCapacity: Math.max(0, requiredCapacity - actorDemand),
+    floorCount, chambers, chamberCapacity, chamberCount, additionalPassages,
+    criticalMinimum: baseCriticalMinimum + additionalPassages,
+    criticalMaximum: Math.max(baseCriticalMinimum + additionalPassages, topologyRange[1] + additionalPassages),
+  };
 }
 
 function dungeonNpcChamberTarget(document, floorCount) {
-  if (!dungeonNpcChamberCandidates(document).length) return 0;
-  return document.npc_placement?.capacity_mode === "from_encounters"
-    ? Math.min(floorCount, dungeonOrdinaryNpcDemand(document)) : floorCount;
+  return dungeonGenerationRequirements(document, floorCount).chamberCount;
 }
 
 function dungeonNpcRequiredPassages(document) {
-  if (!document.npc_placement) return 0;
-  const actorDemand = dungeonNpcActorDemand(document);
-  const floorRange = dungeonRange(dungeonVertical(document).floor_count, [1, 1]);
-  const floorCount = dungeonVertical(document).mode === "flat" ? 1 : Math.max(1, floorRange[1]);
-  const chamberSlots = dungeonNpcChamberTarget(document, floorCount);
-  const required = document.npc_placement.capacity_mode === "fixed"
-    ? Math.max(actorDemand, Number(document.npc_placement.required_slots || 0)) : actorDemand;
-  return Math.max(0, required - chamberSlots);
+  return dungeonGenerationRequirements(document).additionalPassages;
 }
 
 function dungeonChamberFootprintCells(piece) {
@@ -5686,12 +5733,12 @@ function derivedDungeonGridBounds(document, form = $("#dungeon-form")) {
     `${form?.elements?.floorCountMin?.value || configuredFloors[0]},${form?.elements?.floorCountMax?.value || configuredFloors[1]}`,
     configuredFloors, 1,
   );
-  const selectedIds = dungeonSpatialLayout(document).chamber_pieces || [];
-  const selected = selectedIds.map((id) => state.dungeonPieces.get(id)).filter(Boolean);
+  const requirements = dungeonGenerationRequirements(document, floorCount[1]);
+  const selected = requirements.chambers;
   const largestChamberSpan = Math.max(1, ...selected.map((piece) => Math.ceil(Math.max(Number(piece.size?.[0] || 16), Number(piece.size?.[2] || 16)) / 16)));
-  const selectedExtraCells = selected.reduce((sum, piece) => sum + Math.max(0, Math.ceil(Number(piece.size?.[0] || 16) / 16) * Math.ceil(Number(piece.size?.[2] || 16) / 16) - 1), 0);
-  const npcPassages = dungeonNpcRequiredPassages(document);
-  const plannedCells = critical[1] + npcPassages + branchCount[1] * branchDepth[1] + selectedExtraCells;
+  const largestChamberExtra = Math.max(0, ...selected.map((piece) => Math.ceil(Number(piece.size?.[0] || 16) / 16) * Math.ceil(Number(piece.size?.[2] || 16) / 16) - 1));
+  const plannedCells = Math.max(critical[1], requirements.criticalMaximum)
+    + branchCount[1] * branchDepth[1] + largestChamberExtra * requirements.chamberCount;
   const cellsPerFloor = Math.ceil(plannedCells / Math.max(1, floorCount[1]));
   const horizontalCells = Math.max(8, Math.ceil(Math.sqrt(cellsPerFloor * 3)) + largestChamberSpan + 4);
   const floorHeight = Math.max(4, Number(form?.elements?.floorHeight?.value || vertical.floor_height || 8));
@@ -5901,6 +5948,7 @@ function renderDungeonForm() {
     lootOnFailure: document.loot?.on_failure || "grant_on_clear_only", repeatable: document.completion?.repeatable,
     returnTrigger: document.completion?.return_trigger || "clear_exit", firstClearTable: document.rewards?.first_clear_table || "",
     repeatTable: document.rewards?.repeat_table || "",
+    firstClearFieldMoves: (document.rewards?.first_clear_field_moves || []).join(", "),
     randomEnabled: document.random_encounters?.enabled, randomMinDistance: document.random_encounters?.minimum_distance ?? 8,
     randomMaxDistance: document.random_encounters?.maximum_distance ?? 16, randomMaxActive: document.random_encounters?.max_active ?? 1,
     randomInterval: document.random_encounters?.spawn_interval_ticks ?? 100,
@@ -5913,12 +5961,124 @@ function renderDungeonForm() {
   renderDungeonTemplateSelection();
   renderDungeonCaveGeneratorSummary();
   renderDungeonSummary();
+  renderDungeonRewards();
   renderDungeonGeneratedPopulation();
   renderDungeonContentEditor();
   $("#validate-dungeon").disabled = false;
   $("#save-dungeon").disabled = false;
   $("#dungeon-save-state").textContent = state.dungeonDirty ? "저장하지 않은 변경" : "저장됨";
   $("#dungeon-save-state").classList.toggle("is-dirty", state.dungeonDirty);
+}
+
+function dungeonRewardTableId(kind) {
+  return kind === "repeat" ? state.dungeon?.rewards?.repeat_table : state.dungeon?.rewards?.first_clear_table;
+}
+
+function dungeonRewardTablePath(resourceId) {
+  const [namespace, value] = String(resourceId || "").split(":", 2);
+  return `content/loot_tables/${namespace}/${value}.json`;
+}
+
+function dungeonRewardReferenceCount(resourceId) {
+  return state.dungeons.reduce((count, item) => count
+    + Number(item.document?.rewards?.first_clear_table === resourceId)
+    + Number(item.document?.rewards?.repeat_table === resourceId), 0);
+}
+
+function uniqueDungeonRewardTableId(kind) {
+  const dungeonId = state.dungeon?.dungeon_id || "cobbleventure:dungeon/new";
+  const namespace = dungeonId.split(":", 1)[0] || "cobbleventure";
+  const slug = dungeonId.split("/").at(-1) || "dungeon";
+  const suffix = kind === "repeat" ? "repeat_clear" : "first_clear";
+  const base = `${namespace}:dungeon/${slug}_${suffix}`;
+  if (!state.dungeonRewardTables.has(base)) return base;
+  let index = 2;
+  while (state.dungeonRewardTables.has(`${base}_${index}`)) index += 1;
+  return `${base}_${index}`;
+}
+
+function ensureEditableDungeonRewardTable(kind) {
+  state.dungeon.rewards ||= { first_clear_field_moves: [] };
+  let resourceId = dungeonRewardTableId(kind);
+  let table = state.dungeonRewardTables.get(resourceId);
+  if (!table) {
+    resourceId = uniqueDungeonRewardTableId(kind);
+    table = { type: "minecraft:gift", pools: [] };
+    state.dungeonRewardTables.set(resourceId, table);
+    state.dungeonRewardTablePaths.set(resourceId, dungeonRewardTablePath(resourceId));
+    if (kind === "repeat") state.dungeon.rewards.repeat_table = resourceId;
+    else state.dungeon.rewards.first_clear_table = resourceId;
+    setFormValue($("#dungeon-form"), kind === "repeat" ? "repeatTable" : "firstClearTable", resourceId);
+    state.dungeonRewardDirty.add(resourceId);
+  } else if (dungeonRewardReferenceCount(resourceId) > 1 && !state.dungeonRewardDirty.has(resourceId)) {
+    const previousId = resourceId;
+    resourceId = uniqueDungeonRewardTableId(kind);
+    table = structuredClone(table);
+    state.dungeonRewardTables.set(resourceId, table);
+    state.dungeonRewardTablePaths.set(resourceId, dungeonRewardTablePath(resourceId));
+    if (kind === "repeat") state.dungeon.rewards.repeat_table = resourceId;
+    else state.dungeon.rewards.first_clear_table = resourceId;
+    setFormValue($("#dungeon-form"), kind === "repeat" ? "repeatTable" : "firstClearTable", resourceId);
+    state.dungeonRewardDirty.add(resourceId);
+    toast(`공용 보상 ${previousId}을 이 던전 전용 구성으로 복사했습니다.`);
+  }
+  table.pools ||= [];
+  return { resourceId, table };
+}
+
+function dungeonRewardCount(entry) {
+  const count = (entry.functions || []).find((value) => value.function === "minecraft:set_count")?.count;
+  if (typeof count === "number") return [count, count];
+  if (count?.type === "minecraft:uniform") return [Number(count.min || 1), Number(count.max || count.min || 1)];
+  return [1, 1];
+}
+
+function setDungeonRewardCount(entry, minimum, maximum) {
+  entry.functions ||= [];
+  let operation = entry.functions.find((value) => value.function === "minecraft:set_count");
+  if (minimum === 1 && maximum === 1) {
+    entry.functions = entry.functions.filter((value) => value !== operation);
+    if (!entry.functions.length) delete entry.functions;
+    return;
+  }
+  if (!operation) { operation = { function: "minecraft:set_count", count: 1 }; entry.functions.push(operation); }
+  operation.count = minimum === maximum ? minimum : { type: "minecraft:uniform", min: minimum, max: maximum };
+}
+
+function dungeonRewardItemLabel(itemId) {
+  return (state.editorCatalog?.rewardItems || []).find((item) => item.id === itemId)?.name || itemId;
+}
+
+function renderDungeonRewards() {
+  for (const kind of ["first", "repeat"]) {
+    const root = $(`[data-dungeon-reward-list="${kind}"]`);
+    if (!root) continue;
+    const resourceId = dungeonRewardTableId(kind);
+    const table = state.dungeonRewardTables.get(resourceId);
+    if (!table) {
+      root.innerHTML = `<div class="dungeon-reward-empty"><p>연결된 보상 구성이 없습니다.</p><code>${escapeHtml(resourceId || "보상 ID 없음")}</code></div>`;
+      continue;
+    }
+    const shared = dungeonRewardReferenceCount(resourceId);
+    root.innerHTML = `<div class="dungeon-reward-source"><code>${escapeHtml(resourceId)}</code><small>${shared > 1 ? `${shared}곳에서 공유 중 · 수정하면 이 던전 전용으로 자동 복사` : "이 던전 전용 보상"}</small></div>` + (table.pools || []).map((pool, poolIndex) => `
+      <article class="dungeon-reward-pool" data-dungeon-reward-pool="${poolIndex}">
+        <header><strong>보상 묶음 ${poolIndex + 1}</strong><label><span>추첨 횟수</span><input type="number" min="1" max="64" value="${Number(pool.rolls) || 1}" data-dungeon-reward-field="rolls"></label><button type="button" class="button secondary" data-add-dungeon-reward-item>＋ 아이템</button><button type="button" class="button danger" data-delete-dungeon-reward-pool>묶음 삭제</button></header>
+        <small class="dungeon-reward-pool-help">아이템이 하나면 확정 지급, 여러 개면 가중치에 따라 하나를 선택합니다.</small>
+        <div class="dungeon-reward-entries">${(pool.entries || []).map((entry, entryIndex) => {
+          if (entry.type !== "minecraft:item") return `<div class="dungeon-reward-reference" data-dungeon-reward-entry="${entryIndex}"><span><strong>연결된 고급 보상</strong><code>${escapeHtml(entry.value || entry.name || entry.type || "알 수 없음")}</code></span><button type="button" class="button danger" data-delete-dungeon-reward-entry>삭제</button></div>`;
+          const [minimum, maximum] = dungeonRewardCount(entry);
+          const inputId = `dungeon-reward-${kind}-${poolIndex}-${entryIndex}`;
+          return `<div class="dungeon-reward-row" data-dungeon-reward-entry="${entryIndex}"><label class="dungeon-reward-item"><span>아이템</span><div><input id="${inputId}" value="${escapeHtml(entry.name || "")}" data-dungeon-reward-field="item"><button type="button" class="button secondary" data-choose-dungeon-reward-item="${inputId}">검색</button></div><small>${escapeHtml(dungeonRewardItemLabel(entry.name || ""))}</small></label><label><span>최소 수량</span><input type="number" min="1" max="6400" value="${minimum}" data-dungeon-reward-field="min"></label><label><span>최대 수량</span><input type="number" min="1" max="6400" value="${maximum}" data-dungeon-reward-field="max"></label><label><span>가중치</span><input type="number" min="1" max="100000" value="${Number(entry.weight) || 1}" data-dungeon-reward-field="weight"></label><button type="button" class="button danger" data-delete-dungeon-reward-entry>삭제</button></div>`;
+        }).join("") || '<div class="dungeon-reward-empty">이 묶음에 아이템을 추가하세요.</div>'}</div>
+      </article>`).join("") || '<div class="dungeon-reward-empty">보상 묶음을 추가하면 아이템과 수량을 설정할 수 있습니다.</div>';
+  }
+}
+
+function markDungeonRewardChanged(kind, resourceId) {
+  state.dungeonRewardDirty.add(resourceId);
+  state.dungeonDirty = true;
+  $("#dungeon-save-state").textContent = "저장하지 않은 변경";
+  $("#dungeon-save-state").classList.add("is-dirty");
 }
 
 function renderDungeonSummary() {
@@ -6024,6 +6184,7 @@ function updateDungeonFromForm() {
   document.rewards ||= { first_clear_field_moves: [] };
   document.rewards.first_clear_table = form.elements.firstClearTable.value.trim();
   const repeatTable = form.elements.repeatTable.value.trim(); if (repeatTable) document.rewards.repeat_table = repeatTable; else delete document.rewards.repeat_table;
+  document.rewards.first_clear_field_moves = csvValues(form.elements.firstClearFieldMoves.value);
   document.completion ||= { victory_flag: `${document.dungeon_id}/cleared` };
   Object.assign(document.completion, { repeatable: form.elements.repeatable.checked, return_trigger: form.elements.returnTrigger.value });
   document.random_encounters ||= { additions: [] };
@@ -6139,6 +6300,45 @@ function dungeonBattleSelect(name, selected, label, required = false) {
   return `<label class="dungeon-trainer-select"><span>${label}</span><select data-dungeon-content-field data-dungeon-search-select data-dungeon-trainer-battle name="${name}"${required ? " required" : ""}>${battlePresetOptions(selected)}</select></label>`;
 }
 
+function dungeonInlineBattleId(entry, actor, index) {
+  const dungeon = String(state.dungeon?.dungeon_id || "dungeon").replace(/^.*:dungeon\//, "");
+  const safe = (value, fallback) => String(value || fallback).toLowerCase().replace(/[^a-z0-9_./-]+/g, "_").replace(/^\/+|\/+$/g, "");
+  return `cobbleventure:battle/dungeon/${safe(dungeon, "dungeon")}/${safe(entry?.id, "encounter")}/${safe(actor?.id, `trainer_${index + 1}`)}`;
+}
+
+function dungeonInlineBattleTemplate(entry, actor, index) {
+  const referenced = state.battles.find((candidate) => candidate.id === actor?.battle)?.document?.battle;
+  const battle = referenced ? structuredClone(referenced) : {
+    trainer_id: "cobbleventure:trainer/dungeon_inline",
+    format: "GEN_9_SINGLES", battle_type: "singles",
+    ai: { controller: "cobbleventure", difficulty: entry?.boss ? "advanced" : "standard", strategy: "balanced", options: {} },
+    level_mode: "fixed", rules: { can_forfeit: false }, bag: [],
+    mechanics: { mega_evolution: false, z_move: false, dynamax: false, terastallization: false },
+    team: [pokemonTemplate()],
+  };
+  const trainerSlug = dungeonInlineBattleId(entry, actor, index)
+    .replace(/^.*:battle\//, "").replace(/[^a-z0-9_.-]+/g, "_");
+  battle.trainer_id = `cobbleventure:trainer/${trainerSlug}`;
+  battle.team = Array.isArray(battle.team) && battle.team.length ? battle.team : [pokemonTemplate()];
+  battle.mechanics ||= { mega_evolution: false, z_move: false, dynamax: false, terastallization: false };
+  battle.rules ||= { can_forfeit: false };
+  battle.bag ||= [];
+  return battle;
+}
+
+function dungeonBattleSourceFields(entry, actor, index) {
+  const mode = actor.inline_battle ? "direct" : "preset";
+  const option = (value, title, description) => `<button type="button" data-dungeon-battle-source="${value}" data-index="${index}" aria-pressed="${mode === value}" class="dungeon-trainer-mode-option${mode === value ? " is-active" : ""}"><b>${title}</b><small>${description}</small></button>`;
+  return `<fieldset class="wide dungeon-trainer-mode dungeon-battle-source"><legend>포켓몬 팀 구성</legend><input type="hidden" name="ownedTrainerBattleMode${index}" value="${mode}">${option("preset", "배틀 프리셋", "기존 배틀 프리셋의 팀과 규칙을 사용합니다.")}${option("direct", "직접 팀 구성", "공통 포켓몬 팀 편집기로 이 보스의 팀을 직접 만듭니다.")}</fieldset>`;
+}
+
+function dungeonInlineTeamEditor(entry) {
+  const direct = (entry.trainers || []).map((actor, index) => ({ actor, index })).filter(({ actor }) => actor.inline_battle);
+  if (!direct.length) return "";
+  if (!direct.some(({ index }) => index === state.dungeonTeamActorIndex)) state.dungeonTeamActorIndex = direct[0].index;
+  return `<section class="wide dungeon-inline-team-editor"><header><div><b>보스 포켓몬 팀</b><small>NPC·배틀·리그 편집기와 같은 공통 팀 컨트롤입니다.</small></div><nav>${direct.map(({ actor, index }) => `<button type="button" data-dungeon-team-actor="${index}" class="${index === state.dungeonTeamActorIndex ? "is-active" : ""}">${index + 1}번 · ${escapeHtml(actor.display_name?.ko_kr || actor.id)}</button>`).join("")}</nav></header><div class="dungeon-inline-team-actions"><button type="button" class="button secondary" data-dungeon-team-action="reference">참고 엔트리 불러오기</button><button type="button" class="button secondary" data-dungeon-team-action="copy">엔트리 JSON 복사</button><button type="button" class="button secondary" data-dungeon-team-action="paste">엔트리 JSON 붙여넣기</button><button type="button" class="button secondary" data-dungeon-team-action="add">포켓몬 추가</button></div><div id="dungeon-team-list" class="team-list dungeon-team-list"></div></section>`;
+}
+
 function dungeonPresetTrainerFields(entry) {
   const npcs = entry.npcs || [];
   const opponents = entry.opponents || [];
@@ -6163,9 +6363,10 @@ function dungeonOwnedTrainerFields(entry) {
   const trigger = entry.trigger || {};
   const actor = (index) => {
     const value = trainers[index] || {};
-    return `<article data-dungeon-owned-trainer-slot="${index}"><strong>${index + 1}번 상대${index ? " · 선택" : ""}</strong>${contentField("내부 ID", `ownedTrainerId${index}`, value.id || "", { required: index === 0 })}${contentField("표시 이름", `ownedTrainerName${index}`, value.display_name?.ko_kr || "", { required: index === 0 })}${dungeonTrainerClassSelect(`ownedTrainerClass${index}`, value.trainer_class || "cobbleventure:trainer_class/villain_grunt")}${dungeonBattleSelect(`ownedTrainerBattle${index}`, value.battle || "", "배틀 프리셋", index === 0)}</article>`;
+    const battle = value.inline_battle ? "" : dungeonBattleSelect(`ownedTrainerBattle${index}`, value.battle || "", "배틀 프리셋", index === 0);
+    return `<article data-dungeon-owned-trainer-slot="${index}"><strong>${index + 1}번 상대${index ? " · 선택" : ""}</strong>${contentField("내부 ID", `ownedTrainerId${index}`, value.id || "", { required: index === 0 })}${contentField("표시 이름", `ownedTrainerName${index}`, value.display_name?.ko_kr || "", { required: index === 0 })}${dungeonTrainerClassSelect(`ownedTrainerClass${index}`, value.trainer_class || "cobbleventure:trainer_class/villain_grunt")}${dungeonBattleSourceFields(entry, value, index)}${battle}</article>`;
   };
-  return `<section class="wide dungeon-trainer-assignments"><header><div><b>던전 생성 트레이너</b><small>별도 NPC 파일이나 V5 이벤트 없이 이 설정만으로 생성·조우합니다.</small></div></header>${actor(0)}${actor(1)}</section><section class="wide dungeon-generated-trainer"><header><div><b>근접 조우 연출</b><small>선두 NPC에 접근하면 경고 음악과 공용 V5 대사 뒤 전투가 시작됩니다.</small></div></header>${contentField("선두 번호 (0부터)", "triggerLeader", trigger.leader ?? 0, { type: "number", min: 0, max: 1, required: true })}${contentField("조우 거리", "triggerRange", trigger.range ?? 6, { type: "number", min: 1, max: 32, required: true })}${contentField("경고 추가 거리", "triggerWarningOffset", trigger.warning_offset ?? 3, { type: "number", min: 0, max: 32, required: true })}${contentField("경고 음악", "triggerWarningTrack", trigger.warning_track || "encounter.trainer_bad_guys", { required: true })}${contentField("시작 대사 — 한 줄에 하나", "triggerStartLines", (trigger.start_lines || []).join("\n"), { wide: true, multiline: true, required: true })}${contentField("승리 대사 — 한 줄에 하나", "triggerWinLines", (trigger.win_lines || []).join("\n"), { wide: true, multiline: true, required: true })}${contentField("패배 대사 — 한 줄에 하나", "triggerLossLines", (trigger.loss_lines || []).join("\n"), { wide: true, multiline: true, required: true })}</section>`;
+  return `<section class="wide dungeon-trainer-assignments"><header><div><b>던전 생성 트레이너</b><small>별도 NPC 파일이나 V5 이벤트 없이 이 설정만으로 생성·조우합니다.</small></div></header>${actor(0)}${actor(1)}</section>${dungeonInlineTeamEditor(entry)}<section class="wide dungeon-generated-trainer"><header><div><b>근접 조우 연출</b><small>선두 NPC에 접근하면 경고 음악과 공용 V5 대사 뒤 전투가 시작됩니다.</small></div></header>${contentField("선두 번호 (0부터)", "triggerLeader", trigger.leader ?? 0, { type: "number", min: 0, max: 1, required: true })}${contentField("조우 거리", "triggerRange", trigger.range ?? 6, { type: "number", min: 1, max: 32, required: true })}${contentField("경고 추가 거리", "triggerWarningOffset", trigger.warning_offset ?? 3, { type: "number", min: 0, max: 32, required: true })}${contentField("경고 음악", "triggerWarningTrack", trigger.warning_track || "encounter.trainer_bad_guys", { required: true })}${contentField("시작 대사 — 한 줄에 하나", "triggerStartLines", (trigger.start_lines || []).join("\n"), { wide: true, multiline: true, required: true })}${contentField("승리 대사 — 한 줄에 하나", "triggerWinLines", (trigger.win_lines || []).join("\n"), { wide: true, multiline: true, required: true })}${contentField("패배 대사 — 한 줄에 하나", "triggerLossLines", (trigger.loss_lines || []).join("\n"), { wide: true, multiline: true, required: true })}</section>`;
 }
 
 function dungeonPokemonPoolOptions(pool) {
@@ -6198,8 +6399,8 @@ function renderDungeonGeneratedPopulation() {
   const appearances = config.appearance_pool || [];
   const dialogues = config.dialogue_pool || [];
   const pokemon = config.pokemon_pool || [];
-  const removeButton = (pool, index, length) => `<button type="button" data-generated-remove="${pool}" data-index="${index}"${length <= 1 ? " disabled" : ""}>삭제</button>`;
-  root.innerHTML = `<div class="dungeon-generated-population-controls"><label class="toggle"><input name="generatedEnabled" type="checkbox"${config.enabled ? " checked" : ""}><span>자동 NPC 생성 사용</span></label><label><span>생성 NPC 최소 수</span><input name="generatedCountMin" type="number" min="1" max="256" value="${count[0]}"></label><label><span>생성 NPC 최대 수</span><input name="generatedCountMax" type="number" min="1" max="256" value="${count[1]}"></label><label><span>NPC당 포켓몬 최소 수</span><input name="generatedTeamMin" type="number" min="1" max="6" value="${team[0]}"></label><label><span>NPC당 포켓몬 최대 수</span><input name="generatedTeamMax" type="number" min="1" max="6" value="${team[1]}"></label><label class="toggle"><input name="generatedAllowDuplicates" type="checkbox"${config.allow_duplicates ? " checked" : ""}><span>한 팀에서 같은 종 중복 허용</span></label></div><div class="dungeon-generated-pools${config.enabled ? "" : " is-disabled"}"><section><header><div><b>외형 풀</b><small>표시 이름과 외형 클래스를 함께 추첨합니다.</small></div><button type="button" data-generated-add="appearance">＋ 외형</button></header>${appearances.map((entry, index) => `<article data-generated-row="appearance"><label><span>표시 이름</span><input name="generatedAppearanceName" value="${escapeHtml(entry.display_name?.ko_kr || "")}"></label><label><span>외형 클래스</span><select name="generatedAppearanceClass" data-dungeon-search-select>${dungeonTrainerClassOptions(entry.trainer_class)}</select></label><label><span>가중치</span><input name="generatedAppearanceWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("appearance", index, appearances.length)}</article>`).join("")}</section><section><header><div><b>대사 풀</b><small>NPC마다 전투 시작·종료 대사 한 쌍을 추첨합니다.</small></div><button type="button" data-generated-add="dialogue">＋ 대사</button></header>${dialogues.map((entry, index) => `<article data-generated-row="dialogue"><label><span>전투 시작 대사</span><input name="generatedStartLine" value="${escapeHtml(entry.battle_start_line || "")}"></label><label><span>전투 종료 대사</span><input name="generatedEndLine" value="${escapeHtml(entry.battle_end_line || "")}"></label><label><span>가중치</span><input name="generatedDialogueWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("dialogue", index, dialogues.length)}</article>`).join("")}</section><section><header><div><b>포켓몬 풀</b><small>가중치에 따라 팀을 만들며 위의 NPC당 포켓몬 수 범위를 따릅니다.</small></div><label><span>포켓몬 추가</span><select name="generatedPokemonAdd" data-dungeon-search-select>${dungeonPokemonPoolOptions(pokemon)}</select></label></header>${pokemon.map((entry, index) => `<article data-generated-row="pokemon"><label><span>포켓몬 종</span><input name="generatedPokemonSpecies" value="${escapeHtml(entry.species || "")}"></label><label><span>가중치</span><input name="generatedPokemonWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("pokemon", index, pokemon.length)}</article>`).join("")}</section></div>`;
+  const removeButton = (pool, index, length) => `<button class="button danger dungeon-generated-button" type="button" data-generated-remove="${pool}" data-index="${index}"${length <= 1 ? " disabled" : ""}>삭제</button>`;
+  root.innerHTML = `<div class="dungeon-generated-population-controls"><label class="toggle"><input name="generatedEnabled" type="checkbox"${config.enabled ? " checked" : ""}><span>자동 NPC 생성 사용</span></label><label><span>생성 NPC 최소 수</span><input name="generatedCountMin" type="number" min="1" max="256" value="${count[0]}"></label><label><span>생성 NPC 최대 수</span><input name="generatedCountMax" type="number" min="1" max="256" value="${count[1]}"></label><label><span>NPC당 포켓몬 최소 수</span><input name="generatedTeamMin" type="number" min="1" max="6" value="${team[0]}"></label><label><span>NPC당 포켓몬 최대 수</span><input name="generatedTeamMax" type="number" min="1" max="6" value="${team[1]}"></label><label class="toggle"><input name="generatedAllowDuplicates" type="checkbox"${config.allow_duplicates ? " checked" : ""}><span>한 팀에서 같은 종 중복 허용</span></label></div><div class="dungeon-generated-pools${config.enabled ? "" : " is-disabled"}"><section><header><div><b>외형 풀</b><small>표시 이름과 외형 클래스를 함께 추첨합니다.</small></div><button class="button secondary dungeon-generated-button" type="button" data-generated-add="appearance">＋ 외형</button></header>${appearances.map((entry, index) => `<article data-generated-row="appearance"><label><span>표시 이름</span><input name="generatedAppearanceName" value="${escapeHtml(entry.display_name?.ko_kr || "")}"></label><label><span>외형 클래스</span><select name="generatedAppearanceClass" data-dungeon-search-select>${dungeonTrainerClassOptions(entry.trainer_class)}</select></label><label><span>가중치</span><input name="generatedAppearanceWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("appearance", index, appearances.length)}</article>`).join("")}</section><section><header><div><b>대사 풀</b><small>NPC마다 전투 시작·종료 대사 한 쌍을 추첨합니다.</small></div><button class="button secondary dungeon-generated-button" type="button" data-generated-add="dialogue">＋ 대사</button></header>${dialogues.map((entry, index) => `<article data-generated-row="dialogue"><label><span>전투 시작 대사</span><input name="generatedStartLine" value="${escapeHtml(entry.battle_start_line || "")}"></label><label><span>전투 종료 대사</span><input name="generatedEndLine" value="${escapeHtml(entry.battle_end_line || "")}"></label><label><span>가중치</span><input name="generatedDialogueWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("dialogue", index, dialogues.length)}</article>`).join("")}</section><section><header><div><b>포켓몬 풀</b><small>가중치에 따라 팀을 만들며 위의 NPC당 포켓몬 수 범위를 따릅니다.</small></div><label><span>포켓몬 추가</span><select name="generatedPokemonAdd" data-dungeon-search-select>${dungeonPokemonPoolOptions(pokemon)}</select></label></header>${pokemon.map((entry, index) => `<article data-generated-row="pokemon"><label><span>포켓몬 종</span><input name="generatedPokemonSpecies" value="${escapeHtml(entry.species || "")}"></label><label><span>가중치</span><input name="generatedPokemonWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("pokemon", index, pokemon.length)}</article>`).join("")}</section></div>`;
   root.querySelectorAll("[data-dungeon-search-select]").forEach(enhanceMusicSelect);
 }
 
@@ -6249,6 +6450,23 @@ function switchDungeonTrainerMode(mode) {
   }
   if (mode !== "dungeon") {
     entry.npcs ||= [state.trainers[0]?.id || "cobbleventure:npc/new_encounter"];
+  }
+  markDungeonContentDirty();
+  renderDungeonContentEditor(); renderDungeonPreview();
+}
+
+function switchDungeonBattleSource(index, mode) {
+  updateDungeonContentFromEditor();
+  const selected = selectedDungeonContent();
+  const actor = selected?.kind === "encounter" ? selected.entry.trainers?.[index] : null;
+  if (!actor) return;
+  if (mode === "direct") {
+    actor.inline_battle ||= dungeonInlineBattleTemplate(selected.entry, actor, index);
+    actor.battle = dungeonInlineBattleId(selected.entry, actor, index);
+    state.dungeonTeamActorIndex = index;
+  } else {
+    delete actor.inline_battle;
+    if (actor.battle.includes(":battle/dungeon/")) actor.battle = state.battles[0]?.id || "cobbleventure:battle/new_encounter";
   }
   markDungeonContentDirty();
   renderDungeonContentEditor(); renderDungeonPreview();
@@ -6330,6 +6548,25 @@ function renderDungeonContentProperties() {
   }
   root.innerHTML = `<header class="dungeon-content-property-head"><div><strong>${escapeHtml(dungeonContentLabel(kind, entry))}</strong><small>${escapeHtml(dungeonContentKinds[kind].label)} 속성</small></div><span>${escapeHtml(dungeonContentSubtitle(kind, entry))}</span></header><div class="dungeon-content-fields">${fields}</div>`;
   root.querySelectorAll("[data-dungeon-search-select]").forEach(enhanceMusicSelect);
+  if (root.querySelector("#dungeon-team-list")) renderTeam("#dungeon-team-list");
+  root.querySelectorAll("[data-dungeon-battle-source]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    switchDungeonBattleSource(Number(button.dataset.index), button.dataset.dungeonBattleSource);
+  }));
+  root.querySelectorAll("[data-dungeon-team-actor]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    updateFocusedPokemon();
+    state.dungeonTeamActorIndex = Number(button.dataset.dungeonTeamActor);
+    renderDungeonContentProperties();
+  }));
+  root.querySelectorAll("[data-dungeon-team-action]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    state.teamEditorTarget = "#dungeon-team-list";
+    if (button.dataset.dungeonTeamAction === "reference") openChoiceDialog("trainer_reference");
+    else if (button.dataset.dungeonTeamAction === "copy") copyTeamJson();
+    else if (button.dataset.dungeonTeamAction === "paste") pasteTeamJson();
+    else if (button.dataset.dungeonTeamAction === "add") addPokemon();
+  }));
 }
 
 function renderDungeonContentEditor() {
@@ -6372,7 +6609,19 @@ function updateDungeonContentFromEditor() {
       const trainerMode = textValue("trainerMode");
       if (trainerMode === "dungeon") {
         const lines = (name) => (control(name)?.value || "").split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-        entry.trainers = [0, 1].map((index) => ({ id: textValue(`ownedTrainerId${index}`), display_name: { ko_kr: textValue(`ownedTrainerName${index}`) }, trainer_class: textValue(`ownedTrainerClass${index}`), battle: textValue(`ownedTrainerBattle${index}`) })).filter((actor) => actor.id && actor.display_name.ko_kr && actor.battle);
+        const previousTrainers = entry.trainers || [];
+        entry.trainers = [0, 1].map((index) => {
+          const actor = previousTrainers[index] || {};
+          const id = textValue(`ownedTrainerId${index}`);
+          const direct = textValue(`ownedTrainerBattleMode${index}`) === "direct";
+          const next = {
+            id, display_name: { ko_kr: textValue(`ownedTrainerName${index}`) },
+            trainer_class: textValue(`ownedTrainerClass${index}`),
+            battle: direct ? dungeonInlineBattleId(entry, { ...actor, id }, index) : textValue(`ownedTrainerBattle${index}`),
+          };
+          if (direct) next.inline_battle = actor.inline_battle || dungeonInlineBattleTemplate(entry, next, index);
+          return next;
+        }).filter((actor) => actor.id && actor.display_name.ko_kr && actor.battle);
         entry.trigger = { type: "proximity", leader: numberValue("triggerLeader"), range: Number(control("triggerRange")?.value || 6), warning_offset: Number(control("triggerWarningOffset")?.value || 3), warning_track: textValue("triggerWarningTrack"), start_lines: lines("triggerStartLines"), win_lines: lines("triggerWinLines"), loss_lines: lines("triggerLossLines") };
         delete entry.npcs; delete entry.opponents; delete entry.trainer_generation;
       } else {
@@ -7316,6 +7565,36 @@ function dungeonPreviewCollapsePassageNodes(graph) {
   return graph;
 }
 
+function dungeonPreviewAppendCapacityTail(graph, count) {
+  const requested = Math.max(0, Math.round(Number(count) || 0));
+  if (!requested) return 0;
+  const boss = graph.nodes.find((node) => node.role === "boss" && node.critical);
+  if (!boss) return 0;
+  const incoming = graph.links.find((link) => link.to === boss.index)
+    || graph.links.find((link) => link.from === boss.index && graph.nodes.find((node) => node.index === link.to)?.role !== "exit");
+  if (!incoming) return 0;
+  const predecessor = incoming.to === boss.index ? incoming.from : incoming.to;
+  const nextId = Math.max(-1, ...graph.nodes.map((node) => node.index)) + 1;
+  const added = Array.from({ length: requested }, (_, index) => ({
+    index: nextId + index,
+    role: "traversal",
+    critical: true,
+    forcePassage: true,
+    npcCapacityPassage: true,
+  }));
+  const bossOffset = graph.nodes.indexOf(boss);
+  graph.nodes.splice(bossOffset, 0, ...added);
+  graph.links = graph.links.filter((link) => link !== incoming);
+  let previous = predecessor;
+  for (const node of added) {
+    graph.links.push({ from: previous, to: node.index, kind: "critical", critical: true });
+    previous = node.index;
+  }
+  graph.links.push({ from: previous, to: boss.index, kind: incoming.kind || "critical", critical: true });
+  dungeonPreviewNormalizeProgressionGraph(graph);
+  return added.length;
+}
+
 const dungeonGridDirections = [
   { facing: "north", opposite: "south", dx: 0, dz: -1 },
   { facing: "east", opposite: "west", dx: 1, dz: 0 },
@@ -7400,29 +7679,20 @@ function dungeonPreviewChamberPositions(graph, algorithm, random) {
     const oriented = ([x, z]) => swapAxes
       ? [z * horizontalSign, x * verticalSign]
       : [x * horizontalSign, z * verticalSign];
-    const body = critical.slice(0, Math.max(0, critical.length - 3)); const tail = critical.slice(body.length);
     const criticalTargets = new Map();
-    body.forEach((node, index) => {
-      const row = Math.floor(index / columns); const offset = index % columns;
-      const column = row % 2 ? columns - 1 - offset : offset;
-      criticalTargets.set(node.index, [column * 4, row * 4]);
+    let cursor = [0, 0]; let direction = 1; let normalSteps = 0;
+    critical.forEach((node, index) => {
+      criticalTargets.set(node.index, [...cursor]);
+      const next = critical[index + 1];
+      if (!next) return;
+      const compact = Boolean(node.npcCapacityPassage || next.npcCapacityPassage);
+      if (!compact && normalSteps >= columns - 1) {
+        cursor = [cursor[0], cursor[1] + 4]; direction *= -1; normalSteps = 0;
+      } else {
+        cursor = [cursor[0] + direction * (compact ? 1 : 4), cursor[1]];
+        if (!compact) normalSteps += 1;
+      }
     });
-    if (!body.length) {
-      tail.forEach((node, index) => criticalTargets.set(node.index, [index * 4, 0]));
-    } else {
-      const lastBodyIndex = body.length - 1;
-      const lastBodyRow = Math.floor(lastBodyIndex / columns);
-      const lastBodyOffset = lastBodyIndex % columns;
-      const lastBody = criticalTargets.get(body.at(-1).index);
-      const bodyDirection = lastBodyRow % 2 ? -1 : 1;
-      const remainingInRow = columns - lastBodyOffset - 1;
-      const continueSameRow = remainingInRow >= tail.length;
-      const tailStart = continueSameRow
-        ? [lastBody[0] + bodyDirection * 4, lastBody[1]]
-        : [lastBody[0], lastBody[1] + 4];
-      const tailDirection = continueSameRow ? bodyDirection : -bodyDirection;
-      tail.forEach((node, index) => criticalTargets.set(node.index, [tailStart[0] + tailDirection * index * 4, tailStart[1]]));
-    }
     critical.forEach((node) => place(node.index, ...oriented(criticalTargets.get(node.index))));
     const pending = graph.nodes.filter((node) => !positions.has(node.index)); let branch = 0;
     while (pending.length) {
@@ -7447,7 +7717,8 @@ function dungeonPreviewChamberPositions(graph, algorithm, random) {
         const previous = critical[index - 1];
         const previousSpan = footprintFor(previous.index)[alongHorizontal ? 0 : 1];
         const currentSpan = footprintFor(node.index)[alongHorizontal ? 0 : 1];
-        const corridorCount = 2 + Math.floor(random() * 2);
+        const corridorCount = previous.npcCapacityPassage || node.npcCapacityPassage
+          ? 0 : 2 + Math.floor(random() * 2);
         along += alongSign > 0 ? previousSpan + corridorCount : -(currentSpan + corridorCount);
       }
       place(node.index, ...point(along));
@@ -7815,24 +8086,23 @@ function compileRuntimeNbtDungeonPlan(document, seed, random, attempt = 0) {
   const algorithm = configuredAlgorithm === "corridor_halls" ? "corridor_halls" : "room_scatter";
   if (algorithm === "authored") return null;
   const topology = dungeonTopology(document);
-  const configuredCriticalRange = dungeonRange(topology.critical_path_rooms, [6, 8]);
-  const npcPassages = dungeonNpcRequiredPassages(document);
-  const criticalRange = configuredCriticalRange;
+  const requirements = dungeonGenerationRequirements(document, floorCount);
+  const criticalRange = [requirements.criticalMinimum, requirements.criticalMaximum];
   const branchRange = dungeonRange(topology.branch_count, [1, 2]);
-  const selectedChambers = dungeonNpcChamberCandidates(document);
-  const totalChamberTarget = dungeonNpcChamberTarget(document, floorCount);
+  const selectedChambers = requirements.chambers;
+  const totalChamberTarget = requirements.chamberCount;
   const chamberTargets = Array.from({ length: floorCount }, () => 0);
   const chamberFloorOffset = floorCount > 1 ? Math.floor(random() * floorCount) : 0;
   for (let chamber = 0; chamber < totalChamberTarget; chamber += 1) {
     chamberTargets[(chamberFloorOffset + chamber) % floorCount] += 1;
   }
-  // Each floor owns at least two ordinary room nodes in addition to its
-  // entrance/landing and final transition or boss/exit nodes.
-  const floorCriticalCounts = Array.from({ length: floorCount }, (_, floor) => floor === floorCount - 1 ? 5 : 4);
+  // Each floor has a compact but usable local route. Feature and chamber demand
+  // can grow it, but floor count alone no longer creates ten-piece repetitions.
+  const floorCriticalCounts = Array.from({ length: floorCount }, (_, floor) => floor === floorCount - 1 ? 7 : 6);
   const occupiedCells = floorCriticalCounts.map(Number);
   const requestedCritical = Math.round(criticalRange[0] + random() * (criticalRange[1] - criticalRange[0]));
   const minimumCritical = floorCriticalCounts.reduce((sum, count) => sum + count, 0);
-  for (let remaining = Math.max(requestedCritical + npcPassages, minimumCritical) - minimumCritical; remaining > 0; remaining -= 1) {
+  for (let remaining = Math.max(requestedCritical, minimumCritical) - minimumCritical; remaining > 0; remaining -= 1) {
     const floor = occupiedCells.indexOf(Math.min(...occupiedCells));
     floorCriticalCounts[floor] += 1; occupiedCells[floor] += 1;
   }
@@ -7847,10 +8117,16 @@ function compileRuntimeNbtDungeonPlan(document, seed, random, attempt = 0) {
   const floorPlans = floorDocuments.map((floorDocument, floor) => {
     const floorRandom = seededDungeonRandom(dungeonFloorSeed(seed, floor, attempt));
     const graph = dungeonPreviewProgression(floorDocument, floorRandom);
+    const first = graph.nodes.find((node) => node.role === "start" && node.critical)
+      || graph.nodes.find((node) => node.critical);
+    const last = graph.nodes.find((node) => node.role === "exit" && node.critical)
+      || [...graph.nodes].reverse().find((node) => node.critical);
+    const capacityTail = floor === floorCount - 1 ? requirements.additionalPassages : 0;
+    const addedCapacity = dungeonPreviewAppendCapacityTail(graph, capacityTail);
+    if (addedCapacity < capacityTail) graph.capacityError = `${floor + 1}층 후반에 여유 NPC 공간 ${capacityTail}개를 만들 수 없습니다.`;
     graph.floorIndex = floor;
     graph.orientationOffset = Math.abs(Math.trunc(seed)) % 2;
     const critical = graph.nodes.filter((node) => node.critical).sort((left, right) => left.index - right.index);
-    const first = critical[0]; const last = critical.at(-1);
     if (floor > 0 && first) first.role = "traversal";
     if (floor < floorCount - 1) {
       critical.slice(Math.max(1, critical.length - 2)).forEach((node) => { node.role = "traversal"; delete node.requires; delete node.grants; });
@@ -7877,6 +8153,7 @@ function compileRuntimeNbtDungeonPlan(document, seed, random, attempt = 0) {
       .forEach((node) => { node.forcePassage = true; });
     dungeonPreviewNormalizeProgressionGraph(graph);
     const physical = dungeonPreviewPhysicalPlan(floorDocument, graph, algorithm, floorRandom);
+    if (graph.capacityError) physical.errors.push(graph.capacityError);
     if (chamberTarget > chamberSlots.length) physical.errors.push(`${floor + 1}층에 일반 공동을 배치할 공간이 부족합니다.`);
     physical.placements.forEach((placement) => { placement.logicalFloor = floor; });
     return { graph, physical, firstNode: first?.index, lastNode: last?.index };
@@ -8966,11 +9243,21 @@ function removeRouteNpcPlacement(index) {
 }
 
 function trainerBattle() {
+  if (state.teamEditorTarget === "#dungeon-team-list") {
+    const selected = selectedDungeonContent();
+    return selected?.kind === "encounter"
+      ? selected.entry.trainers?.[state.dungeonTeamActorIndex]?.inline_battle || null
+      : null;
+  }
   if (state.teamEditorTarget === "#league-team-list") return state.leagueBattlePreset?.battle || null;
   return state.battlePreset?.battle || state.trainer?.battle || null;
 }
 
 function activeBattlePreset() {
+  if (state.teamEditorTarget === "#dungeon-team-list") {
+    const battle = trainerBattle();
+    return battle ? { battle } : null;
+  }
   return state.teamEditorTarget === "#league-team-list" ? state.leagueBattlePreset : state.battlePreset;
 }
 
@@ -12614,8 +12901,8 @@ function setPokemonGimmick(type, enabled) {
     }
     pokemon.gimmick = { type, item: candidates[0].id };
     pokemon.held_item = null;
-    const mechanicInput = $("#battle-form").elements[type === "mega_evolution" ? "megaEvolution" : "zMove"];
-    if (state.teamEditorTarget === "#team-list") mechanicInput.checked = true;
+    const mechanicInput = $("#battle-form")?.elements[type === "mega_evolution" ? "megaEvolution" : "zMove"];
+    if (state.teamEditorTarget === "#team-list" && mechanicInput) mechanicInput.checked = true;
     trainerBattle().mechanics[type] = true;
   }
   renderTeam();
@@ -12713,6 +13000,7 @@ async function pasteTeamJson() {
     }
     state.selectedPokemonIndex = 0;
     if (state.teamEditorTarget === "#league-team-list") renderTeam("#league-team-list");
+    else if (state.teamEditorTarget === "#dungeon-team-list") renderTeam("#dungeon-team-list");
     else renderBattlePreset();
     toast(`클립보드에서 포켓몬 ${team.length}마리를 붙여넣었습니다.`);
   } catch (error) {
@@ -13079,10 +13367,17 @@ function chooseDialogValue(value) {
     const trainerId = trainerBattle()?.trainer_id || "cobbleventure:trainer/imported";
     const importedBattle = structuredClone(reference.battle);
     importedBattle.trainer_id = trainerId;
-    preset.battle = importedBattle;
+    if (state.teamEditorTarget === "#dungeon-team-list") {
+      const selected = selectedDungeonContent();
+      const actor = selected?.entry?.trainers?.[state.dungeonTeamActorIndex];
+      if (!actor) return;
+      actor.inline_battle = importedBattle;
+      markDungeonContentDirty();
+    } else preset.battle = importedBattle;
     state.selectedPokemonIndex = 0;
     closeChoiceDialog();
     if (state.teamEditorTarget === "#league-team-list") renderTeam("#league-team-list");
+    else if (state.teamEditorTarget === "#dungeon-team-list") renderTeam("#dungeon-team-list");
     else renderBattlePreset();
     toast(`${reference.name}${reference.entry_number ? ` #${reference.entry_number}` : ""} 엔트리를 적용했습니다. 저장 전까지 원본 파일은 변경되지 않습니다.`);
     return;
@@ -13269,6 +13564,7 @@ function hydratePartyArt(root = document) {
 function syncTrainerJson() {
   if (state.trainer && $("#trainer-json")) $("#trainer-json").value = JSON.stringify(state.trainer, null, 2);
   if (state.battlePreset && $("#battle-json")) $("#battle-json").value = JSON.stringify(state.battlePreset, null, 2);
+  if (state.teamEditorTarget === "#dungeon-team-list") markDungeonContentDirty();
 }
 
 function setFormValue(form, name, value) {
@@ -17790,6 +18086,46 @@ function parseEditor(selector) {
   catch (error) { toast(`JSON 문법 오류: ${error.message}`); return null; }
 }
 
+function activeDungeonRewardDocuments() {
+  if (!state.dungeon) return [];
+  const ids = [state.dungeon.rewards?.first_clear_table];
+  if (state.dungeon.completion?.repeatable) ids.push(state.dungeon.rewards?.repeat_table);
+  return [...new Set(ids.filter(Boolean))].map((id) => ({
+    id,
+    document: state.dungeonRewardTables.get(id),
+    path: state.dungeonRewardTablePaths.get(id) || dungeonRewardTablePath(id),
+  }));
+}
+
+async function validateDungeonRewardDocuments() {
+  const records = activeDungeonRewardDocuments();
+  const missing = records.filter((record) => !record.document).map((record) => ({
+    level: "error", path: "$.rewards", message: `보상 구성을 찾을 수 없습니다: ${record.id}`,
+  }));
+  const results = await Promise.all(records.filter((record) => record.document).map(async (record) => ({
+    record,
+    result: await request("/api/document-validation?category=loot-tables", {
+      method: "POST", body: JSON.stringify(record.document),
+    }),
+  })));
+  const issues = [...missing, ...results.flatMap(({ record, result }) => (result.data.issues || []).map((issue) => ({
+    ...issue, path: `${record.id} ${issue.path || "$"}`,
+  })))];
+  return { valid: !missing.length && results.every(({ result }) => result.ok), issues };
+}
+
+async function saveDungeonRewardDocuments() {
+  for (const record of activeDungeonRewardDocuments()) {
+    if (!state.dungeonRewardDirty.has(record.id)) continue;
+    const result = await request(`/api/loot-tables?path=${encodeURIComponent(record.path)}`, {
+      method: "PUT", body: JSON.stringify(record.document),
+    });
+    if (!result.ok) return result;
+    state.dungeonRewardDirty.delete(record.id);
+  }
+  return { ok: true, data: { valid: true, issues: [] } };
+}
+
 async function validateDocument(category) {
   const singular = documentSingular(category);
   if (category === "settlements") {
@@ -17805,6 +18141,14 @@ async function validateDocument(category) {
   const document = category === "caves" ? state.cave : category === "dungeons" ? state.dungeon : category === "underground-roads" ? state.undergroundRoad : category === "forests" ? state.forest : category === "routes" ? state.routePreset : parseEditor(`#${singular}-json`);
   if (!document) return false;
   const result = await request(`/api/document-validation?category=${category}`, { method: "POST", body: JSON.stringify(document) });
+  if (result.ok && category === "dungeons") {
+    const rewards = await validateDungeonRewardDocuments();
+    if (!rewards.valid) {
+      showIssues(`#${singular}-issues`, rewards);
+      toast("클리어 보상 구성에 수정이 필요한 항목이 있습니다.");
+      return false;
+    }
+  }
   if (result.ok && category === "trainers" && state.battlePreset) {
     const battleResult = await request("/api/document-validation?category=battles", { method: "POST", body: JSON.stringify(state.battlePreset) });
     if (!battleResult.ok) {
@@ -17844,6 +18188,24 @@ async function saveDocument(category) {
   const originalLabel = saveButton.textContent;
   saveButton.disabled = true;
   saveButton.textContent = "저장 중…";
+  if (category === "dungeons") {
+    const rewardValidation = await validateDungeonRewardDocuments();
+    if (!rewardValidation.valid) {
+      saveButton.disabled = false;
+      saveButton.textContent = originalLabel;
+      showIssues(`#${singular}-issues`, rewardValidation);
+      toast("클리어 보상 검증 오류로 저장하지 않았습니다.");
+      return;
+    }
+    const rewardSave = await saveDungeonRewardDocuments();
+    if (!rewardSave.ok) {
+      saveButton.disabled = false;
+      saveButton.textContent = originalLabel;
+      showIssues(`#${singular}-issues`, rewardSave.data);
+      toast("클리어 보상 구성을 저장하지 못했습니다.");
+      return;
+    }
+  }
   if (category === "trainers" && state.battlePreset) {
     const battleValidation = await request("/api/document-validation?category=battles", { method: "POST", body: JSON.stringify(state.battlePreset) });
     if (!battleValidation.ok) {
@@ -19615,7 +19977,7 @@ $("#refresh-nbt-catalog").addEventListener("click", async (event) => {
 $("#dungeon-plan-choice").addEventListener("change", (event) => { state.dungeonPreview.planId = event.target.value; state.dungeonPreview.floor = "all"; state.dungeonPreview.selected = -1; state.dungeonPlanEditor.selectedPlacement = -1; resetDungeonPreviewView(); renderDungeonPlanEditor(); renderDungeonPreview(); });
 $("#dungeon-floor-choice").addEventListener("change", (event) => { state.dungeonPreview.floor = event.target.value; state.dungeonPreview.selected = -1; resetDungeonPreviewView(); renderDungeonPreview(); });
 $("#dungeon-form").addEventListener("input", (event) => {
-  if (event.target.closest("#dungeon-preview-workspace")) return;
+  if (event.target.closest("#dungeon-preview-workspace, #dungeon-rewards-editor")) return;
   if (!state.dungeon) return;
   const form = event.currentTarget;
   if (event.target.closest("[data-dungeon-layout-advanced]")) {
@@ -19630,7 +19992,7 @@ $("#dungeon-form").addEventListener("input", (event) => {
   renderDungeonPreview();
 });
 $("#dungeon-form").addEventListener("change", (event) => {
-  if (event.target.closest("#dungeon-preview-workspace")) return;
+  if (event.target.closest("#dungeon-preview-workspace, #dungeon-rewards-editor")) return;
   const form = event.currentTarget;
   if (event.target.name === "layoutComplexity" && event.target.value !== "custom") {
     applyDungeonComplexityPreset(event.target.value);
@@ -19659,6 +20021,64 @@ $("#dungeon-form").addEventListener("change", (event) => {
     return;
   }
   renderDungeon();
+});
+$("#dungeon-rewards-editor").addEventListener("click", (event) => {
+  const section = event.target.closest("[data-dungeon-reward-kind]");
+  if (!section || !state.dungeon) return;
+  const kind = section.dataset.dungeonRewardKind;
+  const choose = event.target.closest("[data-choose-dungeon-reward-item]");
+  if (choose) {
+    openItemChoice(choose.dataset.chooseDungeonRewardItem, {
+      title: kind === "repeat" ? "반복 클리어 보상 아이템" : "최초 클리어 보상 아이템",
+      subtitle: "던전 클리어 시 지급할 아이템을 선택합니다.",
+    });
+    return;
+  }
+  const editable = ensureEditableDungeonRewardTable(kind);
+  const poolElement = event.target.closest("[data-dungeon-reward-pool]");
+  const poolIndex = Number(poolElement?.dataset.dungeonRewardPool);
+  if (event.target.closest("[data-add-dungeon-reward-pool]")) {
+    editable.table.pools.push({ rolls: 1, entries: [] });
+  } else if (event.target.closest("[data-add-dungeon-reward-item]") && editable.table.pools[poolIndex]) {
+    editable.table.pools[poolIndex].entries ||= [];
+    editable.table.pools[poolIndex].entries.push({ type: "minecraft:item", name: "cobblemon:poke_ball" });
+  } else if (event.target.closest("[data-delete-dungeon-reward-entry]") && editable.table.pools[poolIndex]) {
+    const entryIndex = Number(event.target.closest("[data-dungeon-reward-entry]").dataset.dungeonRewardEntry);
+    editable.table.pools[poolIndex].entries.splice(entryIndex, 1);
+  } else if (event.target.closest("[data-delete-dungeon-reward-pool]")) {
+    editable.table.pools.splice(poolIndex, 1);
+  } else return;
+  markDungeonRewardChanged(kind, editable.resourceId);
+  renderDungeonRewards();
+});
+$("#dungeon-rewards-editor").addEventListener("input", (event) => {
+  const field = event.target.closest("[data-dungeon-reward-field]");
+  const section = event.target.closest("[data-dungeon-reward-kind]");
+  const poolElement = event.target.closest("[data-dungeon-reward-pool]");
+  if (!field || !section || !poolElement || !state.dungeon) return;
+  const kind = section.dataset.dungeonRewardKind;
+  const editable = ensureEditableDungeonRewardTable(kind);
+  const pool = editable.table.pools[Number(poolElement.dataset.dungeonRewardPool)];
+  if (!pool) return;
+  if (field.dataset.dungeonRewardField === "rolls") {
+    pool.rolls = Math.max(1, Math.round(Number(field.value || 1)));
+  } else {
+    const row = field.closest("[data-dungeon-reward-entry]");
+    const entry = pool.entries?.[Number(row?.dataset.dungeonRewardEntry)];
+    if (!entry || entry.type !== "minecraft:item") return;
+    if (field.dataset.dungeonRewardField === "item") entry.name = field.value.trim();
+    else if (field.dataset.dungeonRewardField === "weight") entry.weight = Math.max(1, Math.round(Number(field.value || 1)));
+    else {
+      const minimum = Math.max(1, Math.round(Number(row.querySelector('[data-dungeon-reward-field="min"]').value || 1)));
+      const maximum = Math.max(minimum, Math.round(Number(row.querySelector('[data-dungeon-reward-field="max"]').value || minimum)));
+      setDungeonRewardCount(entry, minimum, maximum);
+    }
+  }
+  markDungeonRewardChanged(kind, editable.resourceId);
+});
+$("#dungeon-rewards-editor").addEventListener("change", (event) => {
+  event.target.dispatchEvent(new Event("input", { bubbles: true }));
+  renderDungeonRewards();
 });
 $("#dungeon-content-list").addEventListener("click", (event) => {
   const button = event.target.closest("[data-dungeon-content-kind]");

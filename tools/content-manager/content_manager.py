@@ -8980,6 +8980,7 @@ def _managed_directory(root: Path, category: str) -> Path:
         "dungeons": root / "content" / "dungeons",
         "dungeon-plans": root / "content" / "dungeon_plans",
         "dungeon-pieces": root / "content" / "dungeon_pieces",
+        "loot-tables": root / "content" / "loot_tables",
         "underground-roads": root / "content" / "underground_roads",
         "forests": root / "content" / "forests",
         "quests": root / "content" / "quests",
@@ -9530,6 +9531,32 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                             _resource_id(actor.get("battle"), issues, path, f"{actor_path}.battle")
                             if not isinstance(actor.get("display_name"), dict) or not actor["display_name"].get("ko_kr"):
                                 _issue(issues, "error", path, f"{actor_path}.display_name", "한국어 표시 이름이 필요합니다.")
+                            inline_battle = actor.get("inline_battle")
+                            if inline_battle is not None:
+                                if not isinstance(inline_battle, dict):
+                                    _issue(issues, "error", path, f"{actor_path}.inline_battle", "직접 구성 배틀은 객체여야 합니다.")
+                                else:
+                                    inline_document = {
+                                        "schema_version": 1,
+                                        "id": actor.get("battle"),
+                                        "enabled": True,
+                                        "name": actor.get("display_name"),
+                                        "battle": inline_battle,
+                                    }
+                                    _, inline_issues = _validate_payload(
+                                        inline_document, validate_battle_preset_file
+                                    )
+                                    for inline_issue in inline_issues:
+                                        suffix = inline_issue.path.removeprefix("$.battle")
+                                        mapped = (
+                                            f"{actor_path}.inline_battle{suffix}"
+                                            if inline_issue.path.startswith("$.battle")
+                                            else f"{actor_path}.inline_battle"
+                                        )
+                                        _issue(
+                                            issues, inline_issue.level, path, mapped,
+                                            inline_issue.message,
+                                        )
                     trigger = encounter.get("trigger")
                     if not isinstance(trigger, dict):
                         _issue(issues, "error", path, f"{base}.trigger", "던전 생성 트레이너에는 근접 조우 설정이 필요합니다.")
@@ -9961,6 +9988,27 @@ def dungeon_workspace_payload(root: Path) -> dict[str, Any]:
     dungeons, dungeon_errors = documents(content / "dungeons", "dungeon_id")
     plans, plan_errors = documents(content / "dungeon_plans", "plan_id")
     pieces, piece_errors = documents(content / "dungeon_pieces", "piece_id")
+    reward_tables: list[dict[str, Any]] = []
+    reward_table_errors: list[dict[str, str]] = []
+    reward_root = content / "loot_tables"
+    for path in sorted(reward_root.rglob("*.json")) if reward_root.is_dir() else []:
+        relative = path.relative_to(reward_root)
+        if len(relative.parts) < 2:
+            continue
+        resource_id = f"{relative.parts[0]}:{Path(*relative.parts[1:]).with_suffix('').as_posix()}"
+        try:
+            document = load_json(path)
+            if not isinstance(document, dict):
+                raise ValueError("JSON 최상위 값은 객체여야 합니다.")
+            reward_tables.append({
+                "path": path.relative_to(root).as_posix(),
+                "id": resource_id,
+                "document": document,
+            })
+        except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+            reward_table_errors.append({
+                "path": path.relative_to(root).as_posix(), "error": str(error),
+            })
     for item in dungeons:
         document = item["document"]
         item["name"] = _localized_value(document.get("display_name")) or item["id"]
@@ -9978,7 +10026,8 @@ def dungeon_workspace_payload(root: Path) -> dict[str, Any]:
         "items": dungeons,
         "plans": plans,
         "pieces": pieces,
-        "errors": dungeon_errors + plan_errors + piece_errors,
+        "reward_tables": reward_tables,
+        "errors": dungeon_errors + plan_errors + piece_errors + reward_table_errors,
     }
 
 
@@ -10334,6 +10383,53 @@ def _duplicate_document_issue(
     return None
 
 
+def _dungeon_inline_battle_documents(
+    root: Path, dungeon_target: Path, data: Any
+) -> list[tuple[str, dict[str, Any]]]:
+    if not isinstance(data, dict):
+        return []
+    try:
+        relative = dungeon_target.resolve().relative_to(
+            _managed_directory(root, "dungeons")
+        )
+    except ValueError:
+        return []
+    generation = next(
+        (part for part in relative.parts if re.fullmatch(r"generation_\d+", part)),
+        "generation_1",
+    )
+    records: dict[str, tuple[str, dict[str, Any]]] = {}
+    for encounter in data.get("encounters", []):
+        if not isinstance(encounter, dict):
+            continue
+        for actor in encounter.get("trainers", []):
+            if not isinstance(actor, dict) or not isinstance(actor.get("inline_battle"), dict):
+                continue
+            battle_id = actor.get("battle")
+            if not isinstance(battle_id, str) or ":battle/" not in battle_id:
+                continue
+            namespace, _, battle_path = battle_id.partition(":battle/")
+            filename = re.sub(r"[^a-z0-9_.-]+", "__", f"{namespace}__{battle_path}") + ".json"
+            display_name = actor.get("display_name") if isinstance(actor.get("display_name"), dict) else {"ko_kr": actor.get("id", "던전 보스")}
+            name = {
+                language: f"{value} 배틀" if language == "ko_kr" else f"{value} Battle"
+                for language, value in display_name.items()
+                if isinstance(value, str) and value.strip()
+            }
+            document = {
+                "$schema": "../../schemas/battle-preset.schema.json",
+                "schema_version": 1,
+                "id": battle_id,
+                "enabled": True,
+                "name": name or {"ko_kr": "던전 보스 배틀"},
+                "battle": copy.deepcopy(actor["inline_battle"]),
+            }
+            records[battle_id] = (
+                f"content/battles/{generation}/{filename}", document
+            )
+    return list(records.values())
+
+
 def _save_document(
     root: Path, category: str, relative_path: str, data: Any
 ) -> tuple[Path | None, list[Issue]]:
@@ -10346,6 +10442,7 @@ def _save_document(
         "dungeons": validate_dungeon_file,
         "dungeon-plans": validate_dungeon_plan_file,
         "dungeon-pieces": validate_dungeon_piece_file,
+        "loot-tables": validate_loot_table_file,
         "underground-roads": validate_underground_road_file,
         "forests": validate_forest_file,
         "quests": validate_quest_file,
@@ -10391,6 +10488,17 @@ def _save_document(
         issues.append(duplicate)
     if any(issue.level == "error" for issue in issues):
         return target, issues
+
+    if category == "dungeons":
+        for battle_path, battle_document in _dungeon_inline_battle_documents(
+            root, target, data
+        ):
+            _, battle_issues = _save_document(
+                root, "battles", battle_path, battle_document
+            )
+            issues.extend(battle_issues)
+            if any(issue.level == "error" for issue in battle_issues):
+                return target, issues
 
     v5_sync = None
     if category == "trainers":
@@ -12760,6 +12868,18 @@ def validate_loot_tables(
         for problem in validate_loot_table_document(document, known_items):
             _issue(issues, "error", path, problem.path, problem.message)
     return issues
+
+
+def validate_loot_table_file(path: Path) -> tuple[str | None, list[Issue]]:
+    """Validate one loot table edited through a focused content editor."""
+    try:
+        document = load_json(path)
+    except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+        return None, [Issue("error", path.as_posix(), "$", str(error))]
+    return None, [
+        Issue("error", path.as_posix(), problem.path, problem.message)
+        for problem in validate_loot_table_document(document)
+    ]
 
 
 def generate_content(
@@ -16315,7 +16435,7 @@ def create_handler(
                 return
             if request.path == "/api/document-validation":
                 category = parse_qs(request.query).get("category", [""])[0]
-                if category not in {"trainers", "battles", "routes", "settlements", "caves", "dungeons", "dungeon-plans", "dungeon-pieces", "underground-roads", "forests"}:
+                if category not in {"trainers", "battles", "routes", "settlements", "caves", "dungeons", "dungeon-plans", "dungeon-pieces", "loot-tables", "underground-roads", "forests"}:
                     self._json(400, {"error": "지원하지 않는 문서 종류입니다."})
                     return
                 validator = {
@@ -16327,6 +16447,7 @@ def create_handler(
                     "dungeons": validate_dungeon_file,
                     "dungeon-plans": validate_dungeon_plan_file,
                     "dungeon-pieces": validate_dungeon_piece_file,
+                    "loot-tables": validate_loot_table_file,
                     "underground-roads": validate_underground_road_file,
                     "forests": validate_forest_file,
                 }[category]
@@ -17006,6 +17127,7 @@ def create_handler(
                 "/api/dungeons": "dungeons",
                 "/api/dungeon-plans": "dungeon-plans",
                 "/api/dungeon-pieces": "dungeon-pieces",
+                "/api/loot-tables": "loot-tables",
                 "/api/underground-roads": "underground-roads",
                 "/api/forests": "forests",
                 "/api/quests": "quests",

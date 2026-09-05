@@ -20,6 +20,40 @@ import org.junit.jupiter.api.Test;
 
 final class DungeonPiecePlannerTest {
     @Test
+    void sizesChambersFromActualNpcDemandAndKeepsReserveInPassages() throws Exception {
+        List<DungeonPieceDefinition> pieces = packagedRocketPieces();
+        JsonObject root = resourceJson(
+            "data/cobbleventure/dungeons/generation_1/rocket_silph_company.json"
+        );
+        root.getAsJsonObject("generated_trainers").add(
+            "count", JsonParser.parseString("[36,36]")
+        );
+        DungeonDefinition crowded = DungeonDefinition.parse(root);
+        DungeonGenerationRequirements crowdedRequirements =
+            DungeonGenerationRequirements.calculate(crowded, pieces);
+
+        assertEquals(37, crowdedRequirements.actorDemand());
+        assertEquals(36, crowdedRequirements.ordinaryActorDemand());
+        assertEquals(9, crowdedRequirements.chamberCount());
+        assertEquals(3, crowdedRequirements.planningFloorCount());
+
+        JsonObject reservedRoot = root.deepCopy();
+        JsonObject npcPlacement = reservedRoot.getAsJsonObject("npc_placement");
+        npcPlacement.addProperty("capacity_mode", "fixed");
+        npcPlacement.addProperty("required_slots", 234);
+        DungeonGenerationRequirements reservedRequirements =
+            DungeonGenerationRequirements.calculate(
+                DungeonDefinition.parse(reservedRoot), pieces
+            );
+
+        assertEquals(crowdedRequirements.chamberCount(),
+            reservedRequirements.chamberCount());
+        assertEquals(234 - 37, reservedRequirements.reservedCapacity());
+        assertTrue(reservedRequirements.additionalPassageCount()
+            > crowdedRequirements.additionalPassageCount());
+    }
+
+    @Test
     void soloGeneratedDungeonPassesMultiSeedTopologyAndMarkerStress() throws Exception {
         List<DungeonPieceDefinition> pieces = packagedRocketPieces();
         assertTimeout(Duration.ofSeconds(20), () -> {
@@ -415,7 +449,7 @@ final class DungeonPiecePlannerTest {
     }
 
     @Test
-    void npcSlotDemandExpandsThePassageNetworkWithoutAddingRooms() throws Exception {
+    void npcSlotDemandUsesExistingCapacityBeforeExpandingPassages() throws Exception {
         JsonObject base = resourceJson(
             "data/cobbleventure/dungeons/generation_1/rocket_silph_company.json"
         );
@@ -428,7 +462,7 @@ final class DungeonPiecePlannerTest {
             """).getAsJsonObject());
         JsonObject expandedRoot = base.deepCopy();
         expandedRoot.add("npc_placement", JsonParser.parseString("""
-            {"capacity_mode":"fixed","required_slots":18,"minimum_spacing":4}
+            {"capacity_mode":"fixed","required_slots":30,"minimum_spacing":4}
             """).getAsJsonObject());
         List<DungeonPieceDefinition> pieces = packagedRocketPieces().stream()
             .filter(piece -> piece.id().contains("/rocket/"))
@@ -441,8 +475,8 @@ final class DungeonPiecePlannerTest {
             DungeonDefinition.parse(expandedRoot), pieces, false
         );
 
-        assertEquals(12, compact.criticalPathMin());
-        assertEquals(21, expanded.criticalPathMin());
+        assertEquals(19, compact.criticalPathMin());
+        assertEquals(24, expanded.criticalPathMin());
         assertEquals(3, compact.chamberCount());
         assertEquals(3, expanded.chamberCount());
         assertTrue(expanded.criticalPathMin() > compact.criticalPathMin());
@@ -479,7 +513,7 @@ final class DungeonPiecePlannerTest {
 
         assertEquals(2, stairs);
         assertEquals(3, floors.size());
-        assertTrue(floors.values().stream().allMatch(floor -> floor.size() >= 10));
+        assertTrue(floors.values().stream().allMatch(floor -> floor.size() >= 6));
         assertTrue(plan.placements().stream()
             .filter(placement -> placement.role().equals("room"))
             .allMatch(placement -> placement.pieceId()

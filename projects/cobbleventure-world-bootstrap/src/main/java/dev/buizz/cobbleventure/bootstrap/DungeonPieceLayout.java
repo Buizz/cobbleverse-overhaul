@@ -215,7 +215,8 @@ record DungeonPieceLayout(
             settings.verticalDirection(), settings.floorChangesMin(),
             settings.floorChangesMax(), settings.verticalMode(),
             settings.floorHeight(), settings.requiredChamberPieces(),
-            settings.chamberCount(), settings.exactChamberCount()
+            settings.chamberCount(), settings.exactChamberCount(),
+            settings.tailCapacityCount()
         );
     }
 
@@ -304,42 +305,10 @@ record DungeonPieceLayout(
         DungeonDefinition.Vertical vertical = definition.vertical();
         String layoutMode = definition.spatialLayout().algorithm().equals("corridor_halls")
             ? "corridor_spine" : "room_network";
-        boolean encounterSized = definition.npcPlacement().enabled()
-            && definition.npcPlacement().capacityMode().equals("from_encounters");
-        List<String> selectedChambers = definition.spatialLayout().chamberPieces()
-            .stream().filter(id -> {
-                DungeonPieceDefinition piece = pieces.stream()
-                    .filter(candidate -> candidate.id().equals(id))
-                    .findFirst().orElse(null);
-                return piece != null && (!encounterSized || piece.markers().stream()
-                    .anyMatch(marker -> marker.kind().equals("npc_spawn")));
-            }).toList();
-        int minimumChambers = vertical.mode().equals("discrete_floors")
-            ? vertical.floorCount().maximum() : 1;
-        int ordinaryNpcDemand = definition.encounters().stream()
-            .filter(encounter -> encounter.kind().equals("trainer")
-                && !encounter.boss())
-            .mapToInt(DungeonDefinition.Encounter::actorCount).sum();
-        boolean generatedPopulationMaterialized = definition.encounters().stream()
-            .anyMatch(encounter -> encounter.generatedTrainer() != null);
-        if (definition.generatedTrainers().enabled()
-            && !generatedPopulationMaterialized) {
-            ordinaryNpcDemand += definition.generatedTrainers().count().maximum();
-        }
-        int chamberCount = selectedChambers.isEmpty() ? 0 : encounterSized
-            ? Math.min(minimumChambers, ordinaryNpcDemand) : minimumChambers;
-        // Every ordinary passage contributes exactly one fallback NPC slot.
-        // Each encounter-sized chamber is guaranteed to contribute at least one
-        // marker because markerless chamber choices were filtered above.
-        int npcPassagePlacements = definition.npcPlacement().enabled()
-            ? Math.max(0, definition.npcPlacement().requiredSlots() - chamberCount)
-            : 0;
-        int requestedMinimum = topology.criticalPathRooms().minimum()
-            + npcPassagePlacements;
-        int requestedMaximum = Math.max(
-            topology.criticalPathRooms().maximum() + npcPassagePlacements,
-            requestedMinimum
-        );
+        DungeonGenerationRequirements requirements =
+            DungeonGenerationRequirements.calculate(definition, pieces);
+        int requestedMinimum = requirements.criticalPathMinimum();
+        int requestedMaximum = requirements.criticalPathMaximum();
         int safeCriticalRooms = Math.min(
             requestedMaximum,
             Math.max(
@@ -365,7 +334,8 @@ record DungeonPieceLayout(
             Math.max(0, vertical.floorCount().minimum() - 1),
             Math.max(0, vertical.floorCount().maximum() - 1),
             vertical.mode(), vertical.floorHeight(),
-            selectedChambers, chamberCount, encounterSized
+            requirements.chamberPieceIds(), requirements.chamberCount(), true,
+            requirements.additionalPassageCount()
         );
     }
 

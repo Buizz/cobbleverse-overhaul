@@ -87,7 +87,10 @@ export function drawWorldMapTiles(canvas, view, viewport, tiles, options = {}) {
   context.lineJoin = 'round';
   for (const tile of tiles) {
     traceHex(context, tile.x, tile.y, tile.radius);
-    context.fillStyle = tile.emptyFill || TILE_FILLS[tile.tone] || '#f3f7f4';
+    // An empty-terrain override describes only cells without a biome/town tile.  The frame
+    // payload also carries the underlying empty terrain for editor actions, so never let that
+    // value replace the visible biome palette on populated cells.
+    context.fillStyle = (tile.isEmpty ? tile.emptyFill : null) || TILE_FILLS[tile.tone] || '#f3f7f4';
     context.fill();
     context.strokeStyle = tile.selected ? '#ff9f22' : tile.environment ? '#7b5bb5' : tile.route ? '#b9852c' : tile.isEmpty ? '#b84242' : '#b7c7be';
     context.lineWidth = (tile.selected ? 3 : tile.route ? 1.8 : tile.isEmpty ? 1.45 : 1.35) / scale;
