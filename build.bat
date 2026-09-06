@@ -79,6 +79,7 @@ if /I "%~1"=="mod-pokefinder" goto mod_pokefinder
 if /I "%~1"=="mod-theme-blocks" goto mod_theme_blocks
 if /I "%~1"=="pack-smoke" goto pack_smoke
 if /I "%~1"=="pack" goto pack
+if /I "%~1"=="pack-server" goto pack_server
 if /I "%~1"=="pack-release" goto pack_release
 if /I "%~1"=="builder-world" goto builder_world
 if /I "%~1"=="builder-jar" goto builder_jar
@@ -252,6 +253,12 @@ if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%DEVELOPMENT_PROFILE%"
 exit /b %errorlevel%
 
+:pack_server
+call :pack
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%PACK_BUILDER%" build-server --root "%REPO_ROOT%." --profile "%DEVELOPMENT_PROFILE%"
+exit /b %errorlevel%
+
 :pack_release
 %PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%" --strict-pack
 if errorlevel 1 (
@@ -388,6 +395,7 @@ echo   mod-pokefinder Build the CobbleNav Pokefinder radar extension JAR
 echo   mod-theme-blocks Build the standalone themed building blocks JAR
 echo   pack-smoke     Build a minimal CurseForge import test ZIP
 echo   pack           Build the temporary development CurseForge ZIP
+echo   pack-server    Build a NeoForge dedicated-server preparation ZIP
 echo   pack-release   Validate release readiness; blocked until dependencies are locked
 echo   builder-world  Build the standalone CurseForge structure authoring pack and world
 echo   live-editor-world Build the separate single-NBT live editor pack and world

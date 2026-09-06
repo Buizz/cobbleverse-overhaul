@@ -1260,6 +1260,10 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertIn("BATTLE_CENTER_FOCUS_HEIGHT", battle_intro)
         self.assertIn("PORTRAIT_INWARD_ANGLE = 0.65F", battle_overlay)
+        self.assertIn(
+            "BattleIntroPortraitLayout.scaleForHeight(bottom - top)",
+            battle_overlay,
+        )
         self.assertIn("renderEntityInInventoryFollowsAngle", battle_overlay)
         self.assertNotIn("renderEntityInInventoryFollowsMouse", battle_overlay)
         self.assertIn(
@@ -4303,6 +4307,21 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertTrue(any("max_item_uses" in issue.path for issue in issues))
         self.assertTrue(any("bag[0].quantity" in issue.path for issue in issues))
+
+    def test_battle_forfeit_rule_requires_boolean(self) -> None:
+        root = PROJECT_ROOT
+        source = json.loads(
+            (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["battle"]["rules"]["can_forfeit"] = "false"
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_battle_preset_file
+        )
+
+        self.assertTrue(any("can_forfeit" in issue.path for issue in issues))
 
     def test_battle_format_difficulty_and_ai_profile_are_restricted(self) -> None:
         root = PROJECT_ROOT
@@ -7354,6 +7373,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="import-structure-builder"', markup)
         self.assertIn('id="build-export-language"', markup)
         self.assertIn('id="build-cobblemon-target"', markup)
+        self.assertIn('id="build-server-pack"', markup)
+        self.assertIn('runBuild("pack-server")', script)
+        self.assertIn('"pack-server": "NeoForge 전용 서버 준비 ZIP 생성"', (
+            Path(__file__).parents[1] / "content_manager.py"
+        ).read_text(encoding="utf-8"))
         self.assertIn('value="1.7.3"', markup)
         self.assertIn('value="1.8"', markup)
         self.assertIn('JSON.stringify({ command, language, cobblemon_target: cobblemonTarget })', script)

@@ -71,6 +71,7 @@
         "excluded_species": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
         "additions": { "type": "array", "items": { "$ref": "#/$defs/pokemon_addition" } },
         "level_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_level" } },
+        "time_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_time" } },
         "encounter_pools": { "$ref": "#/$defs/encounter_pools" }
       }
     },
@@ -137,6 +138,7 @@
         "excluded_species": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
         "additions": { "type": "array", "items": { "$ref": "#/$defs/pokemon_addition" } },
         "level_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_level" } },
+        "time_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_time" } },
         "trigger_chance": { "type": "number", "minimum": 0, "maximum": 1 }
       }
     },
@@ -154,6 +156,15 @@
           "propertyNames": { "pattern": "^(?:[1-9]|[1-9][0-9]|100)$" },
           "additionalProperties": { "type": "integer", "minimum": 1, "maximum": 10000 }
         }
+      }
+    },
+    "pokemon_time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["species", "time"],
+      "properties": {
+        "species": { "$ref": "#/$defs/resource_id" },
+        "time": { "enum": ["any", "day", "night"] }
       }
     },
     "npc_placement": {

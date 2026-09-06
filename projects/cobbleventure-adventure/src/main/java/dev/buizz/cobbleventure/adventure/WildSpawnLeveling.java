@@ -198,21 +198,34 @@ final class WildSpawnLeveling {
         PokemonEntity entity, Pokemon pokemon,
         AdventureWorldContext.WildSpawnRule rule
     ) {
-        if (rule == null || rule.additions().isEmpty()) {
+        if (rule == null) {
             return null;
         }
+        boolean isDay = !(entity.level() instanceof ServerLevel level) || level.isDay();
+        List<AdventureWorldContext.WildSpawnAddition> additions = activeAdditions(rule, isDay);
+        if (additions.isEmpty()) return null;
         boolean excluded = rule.excludedSpecies().contains(
             pokemon.getSpecies().getResourceIdentifier()
         );
         if (!rule.inheritBiome() || excluded) {
-            return randomAddition(entity, rule.additions());
+            return randomAddition(entity, additions);
         }
-        int additionWeight = rule.additions().stream()
+        int additionWeight = additions.stream()
             .mapToInt(AdventureWorldContext.WildSpawnAddition::weight).sum();
         int totalWeight = INHERITED_SPAWN_WEIGHT + additionWeight;
         int choice = entity.getRandom().nextInt(totalWeight);
         return choice < additionWeight
-            ? weightedAddition(rule.additions(), choice) : null;
+            ? weightedAddition(additions, choice) : null;
+    }
+
+    static List<AdventureWorldContext.WildSpawnAddition> activeAdditions(
+        AdventureWorldContext.WildSpawnRule rule, boolean isDay
+    ) {
+        if (rule == null) return List.of();
+        return rule.additions().stream().filter(addition -> {
+            String time = rule.timeOverrides().getOrDefault(addition.species(), "any");
+            return time.equals("any") || time.equals(isDay ? "day" : "night");
+        }).toList();
     }
 
     static AdventureWorldContext.WildSpawnAddition randomAddition(

@@ -500,6 +500,13 @@
                 <fieldset id="tile-base-layer-switch"><legend>이 타일의 기본 지형</legend><div class="placement-switch"><label><input type="radio" name="kind" value="empty"><span>빈 지형</span></label><label><input type="radio" name="kind" value="biome"><span>바이옴</span></label><label><input type="radio" name="kind" value="settlement"><span>마을 지형</span></label></div><small>관문·출입구·오브젝트는 기본 지형을 바꾸지 않고 별도 배치됩니다.</small></fieldset>
                 <label><span>이 타일의 BGM</span><select name="musicTrack"></select><small id="tile-music-resolution">비워 두면 종류별 기본값을 상속합니다.</small></label>
                 <label data-tile-field="biome"><span>바이옴</span><select name="biome"></select></label>
+                <section data-tile-field="biome" class="tile-habitat-settings">
+                  <div><b>포켓몬 서식지</b><small>타일 바이옴, 기존 길, 또는 이 타일만의 전용 출현 풀을 사용할 수 있습니다.</small></div>
+                  <label><span>서식지 출처</span><select name="pokemonHabitatSource"><option value="biome">현재 바이옴</option><option value="route">길에서 상속</option><option value="custom">타일 전용 설정</option></select></label>
+                  <label data-tile-habitat-route><span>상속할 길</span><select name="pokemonHabitatRoute"></select></label>
+                  <button class="button primary" data-edit-tile-habitat type="button">타일 전용 포켓몬 수정</button>
+                  <small data-tile-habitat-summary></small>
+                </section>
                 <label data-tile-field="biome"><span>바다회오리 경계</span><select name="whirlpoolBoundary"><option value="false">사용 안 함</option><option value="true">이 바다 외곽에 생성</option></select><small>해양 타일에 사용하면 같은 설정의 타일 군집 외곽에만 회오리가 나타납니다.</small></label>
                   <label data-tile-field="empty"><span>빈 지형 타입</span><select name="emptyTerrainType"><option value="high_forest">숲 · 기본</option><option value="dense_forest">우거진 숲 · 큰 가문비나무</option><option value="ocean">바다 · 해저 Y 37~47</option><option value="deep_ocean">심해 · 해저 Y 15~29</option><option value="desert">사막</option><option value="stone_mountain">돌산</option><option value="red_rock_mountain">적갈색 돌산</option><option value="snow_mountain">눈산</option></select><small>접근 불가 배경의 모습입니다. 비행 방지 베리어는 모든 타입에 유지됩니다.</small></label>
                 <label data-tile-field="settlement"><span>마을</span><select name="settlement"></select><small>이미 배치된 마을을 선택하면 이 타일로 이동합니다.</small></label>
@@ -1520,6 +1527,15 @@
             <label for="build-export-language"><span>내보내기 언어</span><select id="build-export-language"><option value="ko_kr">한국어 · ko_kr</option><option value="en_us">English (US) · en_us</option></select></label>
             <small>기본 빌드 대상은 1.7.3입니다. 1.8은 스냅샷 JAR를 사용하는 호환성 테스트와 mod-* 빌드용이며, 전체 개발 팩은 아직 1.7.3만 지원합니다.</small>
           </div>
+          <section class="structure-builder-workflow server-pack-workflow">
+            <header>
+              <div><p class="eyebrow">NEOFORGE DEDICATED SERVER</p><h3>서버 준비 ZIP</h3><small>서버·양쪽 모드와 서버 설정만 모아 전용 서버 배포 파일을 만듭니다. 클라이언트 모드, 셰이더와 리소스팩은 자동으로 제외됩니다.</small></div>
+            </header>
+            <div class="structure-builder-actions">
+              <button class="button primary" id="build-server-pack" type="button">NeoForge 서버 ZIP 만들기</button>
+            </div>
+            <small>ZIP의 setup-server.ps1이 NeoForge와 잠긴 CurseForge 모드를 설치합니다. Mojang EULA 동의는 서버 운영자가 직접 확인해야 합니다.</small>
+          </section>
           <div class="build-grid" id="build-command-list"></div>
           <div class="terminal-heading"><span>실행 결과</span><span id="build-state">대기 중</span></div>
           <pre class="terminal" id="build-output">빌드 버튼을 누르면 결과가 여기에 표시됩니다.</pre>

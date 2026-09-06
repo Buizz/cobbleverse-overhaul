@@ -79,7 +79,8 @@
         "inherit_biome": { "type": "boolean" },
         "excluded_species": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
         "additions": { "type": "array", "items": { "$ref": "#/$defs/pokemon_addition" } },
-        "level_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_level_override" } }
+        "level_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_level_override" } },
+        "time_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_time_override" } }
       }
     },
     "trainer_settings": {
@@ -201,6 +202,14 @@
         "species": { "$ref": "#/$defs/resource_id" },
         "min_level": { "type": "integer", "minimum": 1, "maximum": 100 },
         "max_level": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
+    "pokemon_time_override": {
+      "type": "object", "additionalProperties": false,
+      "required": ["species", "time"],
+      "properties": {
+        "species": { "$ref": "#/$defs/resource_id" },
+        "time": { "enum": ["any", "day", "night"] }
       }
     },
     "room_type": {

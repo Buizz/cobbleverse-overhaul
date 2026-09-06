@@ -15,6 +15,31 @@ from typing import Any
 PROFILE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+SERVER_REQUIRED_FILES = {
+    "README-SERVER.txt",
+    "eula.txt",
+    "server-manifest.json",
+    "server.properties",
+    "setup-server.ps1",
+    "start-server.bat",
+    "start-server.sh",
+    "user_jvm_args.txt",
+}
+SERVER_EXCLUDED_PATHS = {
+    "config/cobblemon-battle-extras-server.json",
+    "config/cobblemon-battle-extras.json",
+    "config/iris.properties",
+    "config/neoforge-client.toml",
+    "config/resourcepackoverrides.json",
+    "options.txt",
+}
+SERVER_EXCLUDED_DIRECTORIES = {
+    "resourcepacks",
+    "shaderpacks",
+    "screenshots",
+    "saves",
+    "config/paxi/resourcepacks",
+}
 
 
 class PackError(RuntimeError):
@@ -265,6 +290,201 @@ def _archive_name(relative: Path) -> str:
     return name
 
 
+def _server_archive_name(relative: Path) -> str:
+    name = PurePosixPath(*relative.parts).as_posix()
+    path = PurePosixPath(name)
+    if path.is_absolute() or ".." in path.parts or "\\" in name:
+        raise PackError(f"안전하지 않은 서버 ZIP 경로입니다: {name}")
+    return name
+
+
+def _is_server_override(relative: Path) -> bool:
+    name = PurePosixPath(*relative.parts).as_posix()
+    folded = name.casefold()
+    if folded in SERVER_EXCLUDED_PATHS:
+        return False
+    return not any(
+        folded == directory or folded.startswith(f"{directory}/")
+        for directory in SERVER_EXCLUDED_DIRECTORIES
+    )
+
+
+def _load_server_dependencies(root: Path, profile: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    path = _inside(root, root / "pack" / "dependencies.lock.json", "의존성 Lock")
+    lock = load_json(path)
+    if not isinstance(lock, dict) or lock.get("schema_version") != 1:
+        raise PackError("서버 팩에는 schema_version 1 의존성 Lock이 필요합니다.")
+    minecraft = lock.get("minecraft")
+    if not isinstance(minecraft, dict) or not isinstance(minecraft.get("loader"), dict):
+        raise PackError("의존성 Lock의 Minecraft·NeoForge 설정이 올바르지 않습니다.")
+    profile_minecraft = profile["minecraft"]
+    loader_id = profile_minecraft["mod_loader"]["id"]
+    expected_loader = f"neoforge-{minecraft['loader'].get('version')}"
+    if minecraft.get("version") != profile_minecraft.get("version") or expected_loader != loader_id:
+        raise PackError("의존성 Lock과 개발 팩의 Minecraft·NeoForge 버전이 다릅니다.")
+
+    mods = lock.get("mods")
+    if not isinstance(mods, list):
+        raise PackError("의존성 Lock의 mods는 배열이어야 합니다.")
+    selected: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    seen_files: set[tuple[int, int]] = set()
+    for index, mod in enumerate(mods):
+        if not isinstance(mod, dict):
+            raise PackError(f"의존성 Lock mods[{index}]가 객체가 아닙니다.")
+        if mod.get("enabled") is not True or mod.get("side") == "client":
+            continue
+        if mod.get("side") not in {"server", "both"}:
+            raise PackError(f"서버 모드 {mod.get('id', index)}의 설치면이 올바르지 않습니다.")
+        mod_id = _required_string(mod, "id", f"$.mods[{index}]")
+        curseforge = mod.get("curseforge")
+        project_id = curseforge.get("project_id") if isinstance(curseforge, dict) else None
+        file_id = curseforge.get("file_id") if isinstance(curseforge, dict) else None
+        if not isinstance(project_id, int) or not isinstance(file_id, int):
+            raise PackError(f"서버 모드 {mod_id}의 CurseForge 파일이 확정되지 않았습니다.")
+        file_key = (project_id, file_id)
+        if mod_id in seen_ids or file_key in seen_files:
+            raise PackError(f"서버 모드 의존성이 중복되었습니다: {mod_id}")
+        seen_ids.add(mod_id)
+        seen_files.add(file_key)
+        selected.append({
+            "id": mod_id,
+            "display_name": _required_string(mod, "display_name", f"$.mods[{index}]"),
+            "version": mod.get("version"),
+            "side": mod["side"],
+            "project_id": project_id,
+            "file_id": file_id,
+        })
+    return lock, selected
+
+
+def server_manifest_for(
+    profile: dict[str, Any], external_mods: list[dict[str, Any]], vendored_mods: list[str]
+) -> dict[str, Any]:
+    loader_id = profile["minecraft"]["mod_loader"]["id"]
+    return {
+        "schema_version": 1,
+        "name": f"{profile['name']} NeoForge Server",
+        "version": profile["version"],
+        "minecraft": {
+            "version": profile["minecraft"]["version"],
+            "loader": {"type": "neoforge", "version": loader_id.removeprefix("neoforge-")},
+        },
+        "external_mods": external_mods,
+        "vendored_mods": vendored_mods,
+    }
+
+
+def _server_setup_script() -> bytes:
+    script = r'''param(
+    [string]$CurseForgeApiKey = $env:CURSEFORGE_API_KEY,
+    [switch]$SkipNeoForge
+)
+$ErrorActionPreference = "Stop"
+$ServerRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$Manifest = Get-Content -LiteralPath (Join-Path $ServerRoot "server-manifest.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+$ModsDirectory = Join-Path $ServerRoot "mods"
+New-Item -ItemType Directory -Force -Path $ModsDirectory | Out-Null
+
+if (-not $SkipNeoForge -and -not (Test-Path -LiteralPath (Join-Path $ServerRoot "run.bat"))) {
+    & java -version
+    if ($LASTEXITCODE -ne 0) { throw "Java 21을 찾을 수 없습니다." }
+    $NeoForgeVersion = $Manifest.minecraft.loader.version
+    $InstallerName = "neoforge-$NeoForgeVersion-installer.jar"
+    $Installer = Join-Path $ServerRoot $InstallerName
+    $InstallerUrl = "https://maven.neoforged.net/releases/net/neoforged/neoforge/$NeoForgeVersion/$InstallerName"
+    Write-Host "NeoForge $NeoForgeVersion 설치 파일을 받습니다."
+    Invoke-WebRequest -UseBasicParsing -Uri $InstallerUrl -OutFile $Installer
+    Push-Location $ServerRoot
+    try { & java -jar $InstallerName --installServer }
+    finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0) { throw "NeoForge 서버 설치에 실패했습니다." }
+    Remove-Item -LiteralPath $Installer -Force
+}
+
+if ($Manifest.external_mods.Count -gt 0 -and [string]::IsNullOrWhiteSpace($CurseForgeApiKey)) {
+    throw "CurseForge API 키가 필요합니다. CURSEFORGE_API_KEY 환경 변수나 -CurseForgeApiKey 인수로 전달해 주세요."
+}
+$Headers = @{ "x-api-key" = $CurseForgeApiKey }
+foreach ($Mod in $Manifest.external_mods) {
+    $Endpoint = "https://api.curseforge.com/v1/mods/$($Mod.project_id)/files/$($Mod.file_id)"
+    Write-Host "[$($Mod.id)] 파일 정보를 확인합니다."
+    $File = (Invoke-RestMethod -Uri $Endpoint -Headers $Headers).data
+    if ([string]::IsNullOrWhiteSpace($File.downloadUrl)) {
+        throw "$($Mod.display_name) 다운로드 URL을 받을 수 없습니다. CurseForge 파일 $($Mod.project_id):$($Mod.file_id)을 수동으로 mods 폴더에 넣어 주세요."
+    }
+    $FileName = [IO.Path]::GetFileName($File.fileName)
+    if ([string]::IsNullOrWhiteSpace($FileName) -or -not $FileName.EndsWith(".jar")) {
+        throw "$($Mod.display_name)의 안전한 JAR 파일명을 확인할 수 없습니다."
+    }
+    $Target = Join-Path $ModsDirectory $FileName
+    if (Test-Path -LiteralPath $Target) {
+        Write-Host "  이미 있음: $FileName"
+        continue
+    }
+    $Temporary = "$Target.download"
+    Invoke-WebRequest -UseBasicParsing -Uri $File.downloadUrl -OutFile $Temporary
+    Move-Item -LiteralPath $Temporary -Destination $Target -Force
+    Write-Host "  설치됨: $FileName"
+}
+Write-Host "서버 준비가 끝났습니다. eula.txt를 확인한 뒤 start-server.bat을 실행하세요."
+'''
+    return script.replace("\n", "\r\n").encode("utf-8-sig")
+
+
+def _server_generated_files(profile: dict[str, Any]) -> dict[str, bytes]:
+    loader = profile["minecraft"]["mod_loader"]["id"].removeprefix("neoforge-")
+    readme = f"""Cobbleventure NeoForge 서버 준비 팩
+
+Minecraft {profile['minecraft']['version']} / NeoForge {loader}
+
+1. Java 21과 CurseForge API 키를 준비합니다.
+2. PowerShell에서 다음 명령을 실행합니다.
+   $env:CURSEFORGE_API_KEY = \"발급받은 API 키\"
+   .\\setup-server.ps1
+3. eula.txt의 내용을 읽고 동의할 경우 eula=false를 eula=true로 바꿉니다.
+4. start-server.bat(Windows) 또는 start-server.sh(Linux)를 실행합니다.
+
+setup-server.ps1은 NeoForge 서버 파일을 설치하고 server-manifest.json에 기록된
+server/both 모드만 CurseForge에서 내려받습니다. 클라이언트 전용 모드, 셰이더,
+리소스팩과 클라이언트 설정은 이 ZIP에 포함되지 않습니다.
+"""
+    start_bat = """@echo off
+if not exist run.bat (
+  echo [ERROR] setup-server.ps1을 먼저 실행해 주세요.
+  exit /b 1
+)
+call run.bat nogui
+"""
+    start_sh = """#!/usr/bin/env sh
+set -eu
+if [ ! -f ./run.sh ]; then
+  echo "[ERROR] setup-server.ps1을 먼저 실행해 주세요." >&2
+  exit 1
+fi
+exec sh ./run.sh nogui
+"""
+    properties = """# Cobbleventure dedicated server defaults
+motd=Cobbleventure NeoForge Server
+online-mode=true
+difficulty=normal
+gamemode=survival
+allow-flight=true
+view-distance=10
+simulation-distance=8
+spawn-protection=0
+"""
+    return {
+        "README-SERVER.txt": readme.replace("\n", "\r\n").encode("utf-8-sig"),
+        "eula.txt": b"# Read https://aka.ms/MinecraftEULA before changing this value.\r\neula=false\r\n",
+        "server.properties": properties.encode("ascii"),
+        "setup-server.ps1": _server_setup_script(),
+        "start-server.bat": start_bat.replace("\n", "\r\n").encode("utf-8-sig"),
+        "start-server.sh": start_sh.encode("utf-8"),
+        "user_jvm_args.txt": b"-Xms4G\r\n-Xmx8G\r\n",
+    }
+
+
 def build_pack(root: Path, profile_path: Path) -> Path:
     root = root.resolve()
     profile = load_profile(root, profile_path)
@@ -328,6 +548,118 @@ def build_pack(root: Path, profile_path: Path) -> Path:
     return output
 
 
+def server_output_path(profile: dict[str, Any]) -> Path:
+    curseforge_output: Path = profile["_output_path"]
+    stem = curseforge_output.stem
+    if stem.endswith("-curseforge"):
+        stem = stem.removesuffix("-curseforge")
+    return curseforge_output.with_name(f"{stem}-neoforge-server.zip")
+
+
+def build_server_pack(root: Path, profile_path: Path) -> Path:
+    root = root.resolve()
+    profile = load_profile(root, profile_path)
+    _, external_mods = _load_server_dependencies(root, profile)
+    overrides: Path = profile["_overrides_path"]
+    vendored_mods = sorted(
+        source.name
+        for source in overrides.joinpath("mods").glob("*.jar")
+        if source.is_file() and not source.is_symlink()
+    )
+    manifest = server_manifest_for(profile, external_mods, vendored_mods)
+    generated = _server_generated_files(profile)
+    generated["server-manifest.json"] = _json_bytes(manifest)
+    output = server_output_path(profile)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_name(output.name + ".tmp")
+
+    if temporary.exists():
+        temporary.unlink()
+    try:
+        with zipfile.ZipFile(temporary, "w", allowZip64=True) as archive:
+            for name, data in generated.items():
+                _write_bytes(archive, name, data)
+            for source in sorted(overrides.rglob("*")):
+                if source.is_symlink():
+                    raise PackError(f"overrides에 심볼릭 링크를 사용할 수 없습니다: {source}")
+                if not source.is_file():
+                    continue
+                relative = source.relative_to(overrides)
+                if not _is_server_override(relative):
+                    continue
+                name = _server_archive_name(relative)
+                if name in generated:
+                    raise PackError(f"서버 자동 생성 파일과 overrides가 충돌합니다: {name}")
+                _write_bytes(archive, name, source.read_bytes())
+        validate_server_pack(temporary, profile=profile)
+        os.replace(temporary, output)
+    except Exception:
+        if temporary.exists():
+            temporary.unlink()
+        raise
+
+    digest = hashlib.sha256(output.read_bytes()).hexdigest()
+    output.with_name(output.name + ".sha256").write_text(
+        f"{digest}  {output.name}\n", encoding="ascii"
+    )
+    return output
+
+
+def validate_server_pack(
+    output: Path,
+    profile: dict[str, Any] | None = None,
+    root: Path | None = None,
+    profile_path: Path | None = None,
+) -> dict[str, Any]:
+    if profile is None:
+        if root is None or profile_path is None:
+            raise PackError("서버 ZIP 검증에는 profile 또는 root와 profile_path가 필요합니다.")
+        profile = load_profile(root, profile_path)
+    profile_root = profile["_profile_path"].parents[2]
+    _, external_mods = _load_server_dependencies(profile_root, profile)
+    expected_vendored = sorted(
+        source.name
+        for source in profile["_overrides_path"].joinpath("mods").glob("*.jar")
+        if source.is_file() and not source.is_symlink()
+    )
+    expected_manifest = server_manifest_for(profile, external_mods, expected_vendored)
+    if not output.is_file():
+        raise PackError(f"서버 ZIP 파일이 없습니다: {output}")
+    try:
+        with zipfile.ZipFile(output, "r") as archive:
+            bad_entry = archive.testzip()
+            if bad_entry is not None:
+                raise PackError(f"서버 ZIP CRC 검증 실패: {bad_entry}")
+            names = archive.namelist()
+            if len(names) != len(set(names)):
+                raise PackError("서버 ZIP에 중복 엔트리가 있습니다.")
+            for name in names:
+                path = PurePosixPath(name)
+                if path.is_absolute() or ".." in path.parts or "\\" in name:
+                    raise PackError(f"안전하지 않은 서버 ZIP 엔트리입니다: {name}")
+            missing = SERVER_REQUIRED_FILES.difference(names)
+            if missing:
+                raise PackError(f"서버 ZIP 필수 파일이 없습니다: {', '.join(sorted(missing))}")
+            forbidden = [name for name in names if not _is_server_override(Path(name)) and name not in SERVER_REQUIRED_FILES]
+            if forbidden:
+                raise PackError(f"클라이언트 전용 파일이 서버 ZIP에 포함됐습니다: {forbidden[0]}")
+            manifest = json.loads(archive.read("server-manifest.json").decode("utf-8-sig"))
+            vendored_names = sorted(
+                PurePosixPath(name).name
+                for name in names
+                if name.startswith("mods/") and name.endswith(".jar")
+            )
+    except (OSError, zipfile.BadZipFile, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise PackError(f"서버 ZIP을 검증할 수 없습니다: {output}: {error}") from error
+    if manifest != expected_manifest:
+        raise PackError("server-manifest.json이 의존성 Lock과 일치하지 않습니다.")
+    if vendored_names != expected_vendored:
+        raise PackError("서버 ZIP의 직접 포함 JAR 목록이 개발 팩과 일치하지 않습니다.")
+    if any(mod.get("side") == "client" for mod in manifest["external_mods"]):
+        raise PackError("서버 manifest에 클라이언트 전용 모드가 포함됐습니다.")
+    return manifest
+
+
 def validate_pack(
     output: Path,
     profile: dict[str, Any] | None = None,
@@ -386,9 +718,9 @@ def validate_pack(
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Cobbleventure CurseForge 팩 빌더")
+    parser = argparse.ArgumentParser(description="Cobbleventure CurseForge·NeoForge 서버 팩 빌더")
     subcommands = parser.add_subparsers(dest="command", required=True)
-    for command in ("build", "validate"):
+    for command in ("build", "validate", "build-server", "validate-server"):
         child = subcommands.add_parser(command)
         child.add_argument("--root", type=Path, default=Path.cwd())
         child.add_argument("--profile", type=Path, required=True)
@@ -418,6 +750,23 @@ def main() -> int:
                 f"직접 포함 JAR {vendored_mod_count}개"
             )
             print(f"SHA-256: {digest}")
+        elif arguments.command == "build-server":
+            output = build_server_pack(root, arguments.profile)
+            manifest = validate_server_pack(output, profile=profile)
+            digest = hashlib.sha256(output.read_bytes()).hexdigest()
+            print(f"NeoForge 서버 준비 ZIP 생성 완료: {output}")
+            print(
+                "서버 구성: "
+                f"Minecraft {manifest['minecraft']['version']}, "
+                f"NeoForge {manifest['minecraft']['loader']['version']}, "
+                f"서버 외부 모드 {len(manifest['external_mods'])}개, "
+                f"직접 포함 JAR {len(manifest['vendored_mods'])}개"
+            )
+            print(f"SHA-256: {digest}")
+        elif arguments.command == "validate-server":
+            output = server_output_path(profile)
+            validate_server_pack(output, profile=profile)
+            print(f"NeoForge 서버 준비 ZIP 검증 성공: {output}")
         else:
             output: Path = profile["_output_path"]
             validate_pack(output, profile=profile)

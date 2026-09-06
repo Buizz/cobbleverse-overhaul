@@ -84,6 +84,27 @@ final class PursuitEncounterSystem {
         Map<String, SpeciesChoice> choices = new HashMap<>();
         int defaultMinimumLevel = settings.get("minimum_level").getAsInt();
         int defaultMaximumLevel = settings.get("maximum_level").getAsInt();
+        Map<String, String> timeOverrides = new HashMap<>();
+        Map<String, String> originalTimes = new HashMap<>();
+        for (JsonElement element : pokemonHabitats.getAsJsonArray("pokemon")) {
+            JsonObject pokemon = element.getAsJsonObject();
+            if (!pokemon.has("id") || !pokemon.has("preferences")) continue;
+            JsonObject preferences = pokemon.getAsJsonObject("preferences");
+            String time = preferences.has("time") ? preferences.get("time").getAsString() : "any";
+            originalTimes.put(
+                pokemon.get("id").getAsString(),
+                time.equals("day") || time.equals("night") ? time : "any"
+            );
+        }
+        if (settings.has("time_overrides")) {
+            for (JsonElement element : settings.getAsJsonArray("time_overrides")) {
+                JsonObject override = element.getAsJsonObject();
+                timeOverrides.put(
+                    override.get("species").getAsString(),
+                    override.get("time").getAsString()
+                );
+            }
+        }
         if (settings.get("inherit_biome").getAsBoolean()) {
             for (JsonElement element : pokemonHabitats.getAsJsonArray("pokemon")) {
                 JsonObject pokemon = element.getAsJsonObject();
@@ -106,7 +127,8 @@ final class PursuitEncounterSystem {
                     ? pokemon.getAsJsonObject("preferences").get("rarity").getAsString() : "common";
                 if (!rarities.isEmpty() && !rarities.contains(rarity)) continue;
                 choices.put(species, new SpeciesChoice(
-                    species, defaultMinimumLevel, defaultMaximumLevel, rarityWeight(rarity), false
+                    species, defaultMinimumLevel, defaultMaximumLevel, rarityWeight(rarity), false,
+                    timeOverrides.getOrDefault(species, originalTimes.getOrDefault(species, "any"))
                 ));
             }
         }
@@ -116,7 +138,8 @@ final class PursuitEncounterSystem {
             choices.put(species, new SpeciesChoice(
                 species, defaultMinimumLevel, defaultMaximumLevel, 20,
                 addition.has("spawn_as_evolved")
-                    && addition.get("spawn_as_evolved").getAsBoolean()
+                    && addition.get("spawn_as_evolved").getAsBoolean(),
+                timeOverrides.getOrDefault(species, originalTimes.getOrDefault(species, "any"))
             ));
         }
         if (settings.has("level_overrides")) {
@@ -127,7 +150,7 @@ final class PursuitEncounterSystem {
                 if (current != null) choices.put(species, new SpeciesChoice(
                     species, override.get("min_level").getAsInt(),
                     override.get("max_level").getAsInt(), current.weight(),
-                    current.spawnAsEvolved()
+                    current.spawnAsEvolved(), current.time()
                 ));
             }
         }
@@ -242,7 +265,12 @@ final class PursuitEncounterSystem {
     }
 
     private static void spawn(ServerPlayer player, Config config, State state) {
-        SpeciesChoice choice = choose(player.getRandom(), config.species());
+        boolean isDay = player.serverLevel().isDay();
+        List<SpeciesChoice> available = config.species().stream()
+            .filter(choice -> choice.time().equals("any")
+                || choice.time().equals(isDay ? "day" : "night"))
+            .toList();
+        SpeciesChoice choice = choose(player.getRandom(), available);
         BlockPos position = findSpawnPosition(player, config);
         if (choice == null || position == null) {
             LOGGER.warn(
@@ -547,8 +575,16 @@ final class PursuitEncounterSystem {
         }
     }
     record SpeciesChoice(
-        String species, int minLevel, int maxLevel, int weight, boolean spawnAsEvolved
-    ) {}
+        String species, int minLevel, int maxLevel, int weight, boolean spawnAsEvolved,
+        String time
+    ) {
+        SpeciesChoice(
+            String species, int minLevel, int maxLevel, int weight,
+            boolean spawnAsEvolved
+        ) {
+            this(species, minLevel, maxLevel, weight, spawnAsEvolved, "any");
+        }
+    }
     private static final class State {
         private String areaId;
         private final Set<UUID> encounters = new HashSet<>();

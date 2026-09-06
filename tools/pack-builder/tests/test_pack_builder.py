@@ -73,6 +73,27 @@ class PackBuilderTests(unittest.TestCase):
             }))
             archive.writestr("assets/minecraft/font/default.json", "{}")
 
+    def _write_dependency_lock(self, root: Path) -> None:
+        path = root / "pack" / "dependencies.lock.json"
+        path.write_text(json.dumps({
+            "schema_version": 1,
+            "minecraft": {
+                "version": "1.21.1",
+                "loader": {"type": "neoforge", "version": "21.1.248"},
+            },
+            "mods": [
+                {"id": "server_mod", "display_name": "Server Mod", "version": "1.0",
+                 "side": "server", "enabled": True,
+                 "curseforge": {"project_id": 10, "file_id": 11}},
+                {"id": "common_mod", "display_name": "Common Mod", "version": "2.0",
+                 "side": "both", "enabled": True,
+                 "curseforge": {"project_id": 20, "file_id": 21}},
+                {"id": "client_mod", "display_name": "Client Mod", "version": "3.0",
+                 "side": "client", "enabled": True,
+                 "curseforge": {"project_id": 30, "file_id": 31}},
+            ],
+        }), encoding="utf-8")
+
     def test_builds_and_validates_minimal_curseforge_zip(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -146,6 +167,42 @@ class PackBuilderTests(unittest.TestCase):
                 metadata = json.loads(resource.read("pack.mcmeta"))
                 self.assertIn("assets/minecraft/font/default.json", resource.namelist())
             self.assertEqual(34, metadata["pack"]["pack_format"])
+
+    def test_builds_neoforge_server_zip_with_only_server_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            profile_path = self._fixture(root)
+            self._write_dependency_lock(root)
+            overrides = root / "pack" / "overrides" / "smoke"
+            (overrides / "mods").mkdir()
+            (overrides / "mods" / "custom.jar").write_bytes(b"custom-server-mod")
+            (overrides / "config" / "server.toml").write_text("enabled=true\n", encoding="utf-8")
+            (overrides / "config" / "iris.properties").write_text("client=true\n", encoding="utf-8")
+            resourcepacks = overrides / "config" / "paxi" / "resourcepacks"
+            resourcepacks.mkdir(parents=True)
+            (resourcepacks / "client.zip").write_bytes(b"client-resource-pack")
+
+            output = pack_builder.build_server_pack(root, profile_path)
+            manifest = pack_builder.validate_server_pack(
+                output, root=root, profile_path=profile_path,
+            )
+            with zipfile.ZipFile(output) as archive:
+                names = set(archive.namelist())
+                eula = archive.read("eula.txt").decode("ascii")
+                setup = archive.read("setup-server.ps1").decode("utf-8-sig")
+
+            self.assertEqual(["common_mod", "server_mod"], sorted(
+                item["id"] for item in manifest["external_mods"]
+            ))
+            self.assertEqual(["custom.jar"], manifest["vendored_mods"])
+            self.assertIn("mods/custom.jar", names)
+            self.assertIn("config/server.toml", names)
+            self.assertNotIn("config/iris.properties", names)
+            self.assertNotIn("config/paxi/resourcepacks/client.zip", names)
+            self.assertIn("server.properties", names)
+            self.assertIn("eula=false", eula)
+            self.assertIn("api.curseforge.com", setup)
+            self.assertTrue(output.with_name(output.name + ".sha256").is_file())
 
 if __name__ == "__main__":
     unittest.main()

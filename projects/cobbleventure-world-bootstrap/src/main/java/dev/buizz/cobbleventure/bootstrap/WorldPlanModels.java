@@ -60,8 +60,17 @@ final class WorldPlanModels {
 
     record PlacedTile(
         HexCoord coordinate, String biome, String boundaryProfile,
-        TerrainProfile terrainProfile, String accessRequirement
+        TerrainProfile terrainProfile, String accessRequirement,
+        TilePokemonHabitat pokemonHabitat
     ) {}
+
+    record TilePokemonHabitat(
+        String source, String routeId, RoutePokemonSpawns pokemonSpawns
+    ) {
+        static TilePokemonHabitat biome() {
+            return new TilePokemonHabitat("biome", null, RoutePokemonSpawns.inherited());
+        }
+    }
 
     record HexConnection(
         String id, String displayName, String from, String to, String routeBiome, int widthCells,
@@ -121,11 +130,12 @@ final class WorldPlanModels {
         boolean inheritBiome, Set<String> excludedSpecies,
         List<RoutePokemonAddition> additions,
         Map<String, PokemonLevelOverride> levelOverrides,
+        Map<String, String> timeOverrides,
         boolean enabled, double triggerChance
     ) {
         static RoutePokemonPool inherited() {
             return new RoutePokemonPool(
-                true, Set.of(), List.of(), Map.of(), true, 1.0D
+                true, Set.of(), List.of(), Map.of(), Map.of(), true, 1.0D
             );
         }
     }
@@ -134,18 +144,19 @@ final class WorldPlanModels {
         boolean inheritBiome, Set<String> excludedSpecies,
         List<RoutePokemonAddition> additions,
         Map<String, PokemonLevelOverride> levelOverrides,
+        Map<String, String> timeOverrides,
         Map<String, RoutePokemonPool> encounterPools
     ) {
         static RoutePokemonSpawns inherited() {
             return new RoutePokemonSpawns(
-                true, Set.of(), List.of(), Map.of(), Map.of()
+                true, Set.of(), List.of(), Map.of(), Map.of(), Map.of()
             );
         }
 
         RoutePokemonPool pool(String method) {
             if (method == null || method.equals("land")) {
                 return new RoutePokemonPool(
-                    inheritBiome, excludedSpecies, additions, levelOverrides,
+                    inheritBiome, excludedSpecies, additions, levelOverrides, timeOverrides,
                     true, 1.0D
                 );
             }
@@ -227,6 +238,7 @@ final class WorldPlanModels {
         Map<HexCoord, String> emptyTerrainTiles,
         Map<HexCoord, EnvironmentOverride> environmentOverrides,
         Map<HexCoord, Integer> levelOverrides, List<CaveEntrancePlan> caveEntrances,
+        Map<HexCoord, TilePokemonHabitat> tilePokemonHabitats,
         List<WorldGateSystem.Gate> gates,
         List<WorldStructureSystem.WorldStructure> worldStructures
     ) {}

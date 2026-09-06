@@ -91,8 +91,9 @@ final class HeadbuttEncounters {
         player.getPersistentData().putLong(PLAYER_COOLDOWN, now + PLAYER_COOLDOWN_TICKS);
         TREE_COOLDOWNS.put(treeKey, now + TREE_COOLDOWN_TICKS);
         playTreeHit(level, player, tree, treeState);
+        var additions = WildSpawnLeveling.activeAdditions(rule, level.isDay());
         if (level.getRandom().nextDouble() > rule.triggerChance()
-            || rule.additions().isEmpty()) {
+            || additions.isEmpty()) {
             message(player, "아무것도 떨어지지 않았다.");
             return;
         }
@@ -101,15 +102,16 @@ final class HeadbuttEncounters {
             message(player, "포켓몬이 내려올 공간이 없다.");
             return;
         }
-        spawnEncounter(level, player, spawnAt, rule);
+        spawnEncounter(level, player, spawnAt, rule, additions);
     }
 
     private static void spawnEncounter(
         ServerLevel level, ServerPlayer player, BlockPos spawnAt,
-        AdventureWorldContext.WildSpawnRule rule
+        AdventureWorldContext.WildSpawnRule rule,
+        java.util.List<AdventureWorldContext.WildSpawnAddition> additions
     ) {
         AdventureWorldContext.WildSpawnAddition addition =
-            selectAddition(level.getRandom(), rule.additions());
+            selectAddition(level.getRandom(), additions);
         int encounterLevel = levelFor(level.getRandom(), rule, addition.species(),
             CobbleventureAdventure.averageWildSpawnLevel(
                 level, spawnAt.getX() + 0.5D, spawnAt.getZ() + 0.5D

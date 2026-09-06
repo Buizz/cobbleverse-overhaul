@@ -8667,7 +8667,8 @@ public final class CobbleventureBootstrap {
             world.grid(), world.seed(), world.cells(), world.paths(), world.settlements(),
             world.boundaryProfiles(), world.defaultEmptyTerrain(), world.emptyTerrainTiles(),
             world.environmentOverrides(), world.levelOverrides(),
-            List.copyOf(entrances), List.copyOf(gates), world.worldStructures()
+            List.copyOf(entrances), world.tilePokemonHabitats(),
+            List.copyOf(gates), world.worldStructures()
         );
     }
 
@@ -9234,6 +9235,7 @@ public final class CobbleventureBootstrap {
         }
 
         Map<HexCoord, PlacedTile> placedTilesByCoordinate = new HashMap<>();
+        Map<HexCoord, TilePokemonHabitat> tilePokemonHabitats = new LinkedHashMap<>();
         for (PlacedTile tile : placedTiles) {
             placedTilesByCoordinate.put(tile.coordinate(), tile);
         }
@@ -9289,12 +9291,16 @@ public final class CobbleventureBootstrap {
                 grid.radius() * 1.04D, 0.08D, tile.terrainProfile(),
                 tile.accessRequirement(), "natural"
             ));
+            if (!tile.pokemonHabitat().source().equals("biome")) {
+                tilePokemonHabitats.put(tile.coordinate(), tile.pokemonHabitat());
+            }
         }
         verifyRouteCenterlines(grid, byId, paths);
         return new HexWorldPlan(
             grid, seed, Map.copyOf(cells), List.copyOf(paths), Map.copyOf(byId), profiles,
             defaultEmptyTerrain, emptyTerrainTiles, environmentOverrides,
-            levelOverrides, caveEntrances, gates, worldStructures
+            levelOverrides, caveEntrances, Map.copyOf(tilePokemonHabitats),
+            gates, worldStructures
         );
     }
 
@@ -10315,8 +10321,20 @@ public final class CobbleventureBootstrap {
         if (world == null) {
             return null;
         }
-        ConnectionPath route = authoredEncounterRouteAt(world, x, z, method);
-        return wildSpawnRule(route, method);
+        HexCoord cell = world.grid().worldToHex(x, z);
+        TilePokemonHabitat tileHabitat = world.tilePokemonHabitats().get(cell);
+        if (tileHabitat != null) {
+            if (tileHabitat.source().equals("custom")) {
+                return wildSpawnRule(tileHabitat.pokemonSpawns(), method);
+            }
+            if (tileHabitat.source().equals("route")) {
+                ConnectionPath inherited = world.paths().stream()
+                    .filter(path -> path.id().equals(tileHabitat.routeId()))
+                    .findFirst().orElse(null);
+                return wildSpawnRule(inherited, method);
+            }
+        }
+        return wildSpawnRule(authoredEncounterRouteAt(world, x, z, method), method);
     }
 
     /**
@@ -10350,10 +10368,13 @@ public final class CobbleventureBootstrap {
     private static AdventureWorldContext.WildSpawnRule wildSpawnRule(
         ConnectionPath route, AdventureWorldContext.WildEncounterMethod method
     ) {
-        if (route == null) return null;
-        RoutePokemonPool settings = route.pokemonSpawns().pool(
-            method.serializedName()
-        );
+        return route == null ? null : wildSpawnRule(route.pokemonSpawns(), method);
+    }
+
+    private static AdventureWorldContext.WildSpawnRule wildSpawnRule(
+        RoutePokemonSpawns spawns, AdventureWorldContext.WildEncounterMethod method
+    ) {
+        RoutePokemonPool settings = spawns.pool(method.serializedName());
         if (settings == null) {
             return null;
         }
@@ -10373,8 +10394,13 @@ public final class CobbleventureBootstrap {
                     override.minLevel(), override.maxLevel(), override.levelWeights()
                 )
             ));
+        Map<ResourceLocation, String> timeOverrides = settings.timeOverrides().entrySet().stream()
+            .collect(Collectors.toUnmodifiableMap(
+                entry -> ResourceLocation.parse(entry.getKey()), Map.Entry::getValue
+            ));
         return new AdventureWorldContext.WildSpawnRule(
             settings.inheritBiome(), excluded, additions, levelOverrides,
+            timeOverrides,
             settings.enabled(), settings.triggerChance()
         );
     }

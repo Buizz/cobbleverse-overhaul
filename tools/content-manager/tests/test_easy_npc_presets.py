@@ -787,6 +787,14 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertIn("tbcs battle GEN_9_SINGLES", preset)
         self.assertNotIn("maxItemUses", preset)
 
+    def test_battle_forfeit_rule_is_forwarded_to_tbcs(self) -> None:
+        battle = next(iter(self.document["_battle_presets"].values()))
+        battle["battle"]["rules"] = {"can_forfeit": False, "max_item_uses": 2}
+
+        preset = generator.encounter_preset_snbt(self.document, self.outfit)
+
+        self.assertIn("rules {canForfeit:false,maxItemUses:2}", preset)
+
     def test_new_npc_routes_from_instance_state_not_global_victory_flag(self) -> None:
         preset = generator.encounter_preset_snbt(self.document, self.outfit)
 

@@ -14,9 +14,26 @@ public record EventBattlePreset(
     String levelMode,
     int levelOffset,
     int fallbackLevel,
+    boolean canForfeit,
     Integer maxItemUses,
     MoneyReward moneyReward
 ) {
+    public EventBattlePreset(
+        String battleId,
+        String trainerId,
+        String format,
+        String levelMode,
+        int levelOffset,
+        int fallbackLevel,
+        Integer maxItemUses,
+        MoneyReward moneyReward
+    ) {
+        this(
+            battleId, trainerId, format, levelMode, levelOffset, fallbackLevel,
+            true, maxItemUses, moneyReward
+        );
+    }
+
     public EventBattlePreset {
         requireResource(battleId, "battleId");
         requireResource(trainerId, "trainerId");
@@ -97,8 +114,14 @@ public record EventBattlePreset(
         String runtimeTrainerId = rctTrainerId();
         String nested = "tbcs battle " + format + " " + playerName
             + " vs @s as " + runtimeTrainerId;
-        if (maxItemUses != null) {
-            nested += " rules {maxItemUses:" + maxItemUses + "}";
+        if (!canForfeit || maxItemUses != null) {
+            StringBuilder rules = new StringBuilder(" rules {");
+            if (!canForfeit) rules.append("canForfeit:false");
+            if (maxItemUses != null) {
+                if (!canForfeit) rules.append(',');
+                rules.append("maxItemUses:").append(maxItemUses);
+            }
+            nested += rules.append('}');
         }
         if (levelMode.equals("map_scaling")) {
             return "cobbleventure_scaled_trainer_battle " + playerName + " "

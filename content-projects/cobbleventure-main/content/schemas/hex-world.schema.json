@@ -125,6 +125,7 @@
         "biome": { "$ref": "#/$defs/resource_id" },
         "boundary_profile": { "$ref": "#/$defs/resource_id" },
         "terrain_profile": { "$ref": "#/$defs/terrain_profile" },
+        "pokemon_habitat": { "$ref": "#/$defs/tile_pokemon_habitat" },
         "music_track": { "$ref": "#/$defs/music_track" },
         "access_requirement": { "$ref": "#/$defs/resource_id" }
       }
@@ -344,6 +345,10 @@
           "type": "array",
           "items": { "$ref": "#/$defs/pokemon_level_override" }
         },
+        "time_overrides": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pokemon_time_override" }
+        },
         "encounter_pools": { "$ref": "#/$defs/route_encounter_pools" }
       }
     },
@@ -368,6 +373,7 @@
         "excluded_species": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
         "additions": { "type": "array", "items": { "$ref": "#/$defs/route_pokemon_addition" } },
         "level_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_level_override" } },
+        "time_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_time_override" } },
         "trigger_chance": { "type": "number", "minimum": 0, "maximum": 1 }
       }
     },
@@ -392,6 +398,35 @@
         "min_level": { "type": "integer", "minimum": 1, "maximum": 100 },
         "max_level": { "type": "integer", "minimum": 1, "maximum": 100 }
       }
+    },
+    "pokemon_time_override": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["species", "time"],
+      "properties": {
+        "species": { "$ref": "#/$defs/resource_id" },
+        "time": { "enum": ["any", "day", "night"] }
+      }
+    },
+    "tile_pokemon_habitat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "source": { "enum": ["biome", "route", "custom"] },
+        "route_id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "pokemon_spawns": { "$ref": "#/$defs/route_pokemon_spawns" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source": { "const": "route" } }, "required": ["source"] },
+          "then": { "required": ["route_id"] }
+        },
+        {
+          "if": { "properties": { "source": { "const": "custom" } }, "required": ["source"] },
+          "then": { "required": ["pokemon_spawns"] }
+        }
+      ]
     },
     "custom_object": {
       "type": "object",

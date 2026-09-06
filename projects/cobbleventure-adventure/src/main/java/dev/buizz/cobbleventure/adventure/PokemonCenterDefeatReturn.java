@@ -34,6 +34,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /** Returns a player with a fully fainted party to their latest generated Pokémon Center. */
@@ -77,6 +78,8 @@ public final class PokemonCenterDefeatReturn {
         );
         EventDialogueLifecycle.register(PokemonCenterDefeatReturn::onDialogueStateChanged);
         NeoForge.EVENT_BUS.addListener(PokemonCenterDefeatReturn::onServerTick);
+        NeoForge.EVENT_BUS.addListener(PokemonCenterDefeatReturn::onPlayerLoggedIn);
+        NeoForge.EVENT_BUS.addListener(PokemonCenterDefeatReturn::onPlayerLoggedOut);
     }
 
     /** Records a validated server-side forfeit before Cobblemon resolves it as a loss. */
@@ -274,7 +277,7 @@ public final class PokemonCenterDefeatReturn {
         return FORFEITED_BATTLES.remove(playerId, battleId);
     }
 
-    static boolean isPartyWiped(ServerPlayer player) {
+    public static boolean isPartyWiped(ServerPlayer player) {
         PlayerPartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
         if (party.occupied() == 0) {
             return false;
@@ -285,6 +288,26 @@ public final class PokemonCenterDefeatReturn {
             }
         }
         return true;
+    }
+
+    private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)
+            || !isPartyWiped(player)
+            || PENDING_RETURNS.containsKey(player.getUUID())
+            || ACTIVE_RECOVERIES.containsKey(player.getUUID())) {
+            return;
+        }
+        long gameTime = player.getServer().overworld().getGameTime();
+        PENDING_RETURNS.put(
+            player.getUUID(),
+            new PendingReturn(gameTime + RETURN_DELAY_TICKS, null, true)
+        );
+    }
+
+    private static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            FORFEITED_BATTLES.remove(player.getUUID());
+        }
     }
 
     private static void startRecovery(

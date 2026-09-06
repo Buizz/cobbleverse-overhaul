@@ -69,7 +69,7 @@ public final class HabitatSpawnRules {
             MapContent.Hex hex = content.worldToHex(x, z);
             MapContent.BiomeTile tile = content.tileAt(hex.q(), hex.r());
             if (tile == null) {
-                return applyRouteRule(Set.of(), routeRule);
+                return applyRouteRule(Set.of(), routeRule, level.isDay());
             }
             LinkedHashSet<ResourceLocation> result = new LinkedHashSet<>();
             for (MapContent.Pokemon pokemon : content.spawnBiome(tile).pokemon()) {
@@ -78,7 +78,7 @@ public final class HabitatSpawnRules {
                     result.add(id);
                 }
             }
-            return applyRouteRule(result, routeRule);
+            return applyRouteRule(result, routeRule, level.isDay());
         }
         return null;
     }
@@ -86,6 +86,14 @@ public final class HabitatSpawnRules {
     static Set<ResourceLocation> applyRouteRule(
         Set<ResourceLocation> biomeSpecies,
         AdventureWorldContext.WildSpawnRule rule
+    ) {
+        return applyRouteRule(biomeSpecies, rule, true);
+    }
+
+    static Set<ResourceLocation> applyRouteRule(
+        Set<ResourceLocation> biomeSpecies,
+        AdventureWorldContext.WildSpawnRule rule,
+        boolean isDay
     ) {
         if (rule == null) {
             return Set.copyOf(biomeSpecies);
@@ -96,9 +104,20 @@ public final class HabitatSpawnRules {
             result.removeAll(rule.excludedSpecies());
         }
         for (AdventureWorldContext.WildSpawnAddition addition : rule.additions()) {
-            result.add(addition.species());
+            if (availableAt(rule, addition.species(), isDay)) {
+                result.add(addition.species());
+            }
         }
+        result.removeIf(species -> !availableAt(rule, species, isDay));
         return Set.copyOf(result);
+    }
+
+    private static boolean availableAt(
+        AdventureWorldContext.WildSpawnRule rule, ResourceLocation species,
+        boolean isDay
+    ) {
+        String time = rule.timeOverrides().getOrDefault(species, "any");
+        return time.equals("any") || time.equals(isDay ? "day" : "night");
     }
 
     public static Map<ResourceLocation, Integer> authoredEncounterWeights(
@@ -115,7 +134,7 @@ public final class HabitatSpawnRules {
             return authored;
         }
         return exclusiveRouteWeights(
-            CobbleventureBootstrap.wildSpawnRule(level, x, z)
+            CobbleventureBootstrap.wildSpawnRule(level, x, z), level.isDay()
         );
     }
 
@@ -145,19 +164,27 @@ public final class HabitatSpawnRules {
         return exclusiveRouteWeights(
             CobbleventureBootstrap.wildSpawnRule(
                 level, x, z, encounterMethod(level, x, y, z)
-            )
+            ), level.isDay()
         );
     }
 
     static Map<ResourceLocation, Integer> exclusiveRouteWeights(
         AdventureWorldContext.WildSpawnRule rule
     ) {
+        return exclusiveRouteWeights(rule, true);
+    }
+
+    static Map<ResourceLocation, Integer> exclusiveRouteWeights(
+        AdventureWorldContext.WildSpawnRule rule, boolean isDay
+    ) {
         if (rule == null || rule.inheritBiome()) {
             return null;
         }
         Map<ResourceLocation, Integer> result = new LinkedHashMap<>();
         for (AdventureWorldContext.WildSpawnAddition addition : rule.additions()) {
-            result.merge(addition.species(), addition.weight(), Integer::sum);
+            if (availableAt(rule, addition.species(), isDay)) {
+                result.merge(addition.species(), addition.weight(), Integer::sum);
+            }
         }
         return Map.copyOf(result);
     }

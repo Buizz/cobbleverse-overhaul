@@ -295,6 +295,7 @@ BUILD_COMMANDS = {
     "mod-casino": "커스텀 가챠 기계 애드온 JAR 생성",
     "pack-smoke": "최소 CurseForge 임포트 ZIP 생성",
     "pack": "개발용 CurseForge ZIP 생성",
+    "pack-server": "NeoForge 전용 서버 준비 ZIP 생성",
     "validate-pack": "실제 모드팩 빌드 준비 상태 검사",
     "builder-world": "독립 건축 월드 CurseForge ZIP 생성",
     "live-editor-world": "단일 NBT 라이브 에디터 CurseForge ZIP 생성",
@@ -851,6 +852,40 @@ def validate_hex_worlds(
             if boundary not in boundary_ids:
                 _issue(issues, "error", path, f"{tile_path}.boundary_profile", f"존재하지 않는 경계 프로필: {boundary}")
             validate_terrain(tile.get("terrain_profile"), path, f"{tile_path}.terrain_profile")
+            habitat = tile.get("pokemon_habitat")
+            if habitat is not None:
+                if not isinstance(habitat, dict) or habitat.get("source") not in {"biome", "route", "custom"}:
+                    _issue(issues, "error", path, f"{tile_path}.pokemon_habitat.source", "서식지 출처는 biome, route, custom 중 하나여야 합니다.")
+                elif habitat.get("source") == "route":
+                    route_id = habitat.get("route_id")
+                    connection_ids = {
+                        item.get("id") for item in world.get("connections", [])
+                        if isinstance(item, dict)
+                    }
+                    if not isinstance(route_id, str) or route_id not in connection_ids:
+                        _issue(issues, "error", path, f"{tile_path}.pokemon_habitat.route_id", f"월드에 없는 길입니다: {route_id}")
+                elif habitat.get("source") == "custom":
+                    custom = habitat.get("pokemon_spawns")
+                    if not isinstance(custom, dict):
+                        _issue(issues, "error", path, f"{tile_path}.pokemon_habitat.pokemon_spawns", "타일 전용 포켓몬 설정이 필요합니다.")
+                    else:
+                        for field in ("excluded_species", "additions", "level_overrides"):
+                            if not isinstance(custom.get(field), list):
+                                _issue(issues, "error", path, f"{tile_path}.pokemon_habitat.pokemon_spawns.{field}", "배열이어야 합니다.")
+                        if not isinstance(custom.get("inherit_biome"), bool):
+                            _issue(issues, "error", path, f"{tile_path}.pokemon_habitat.pokemon_spawns.inherit_biome", "바이옴 포켓몬 상속 여부가 필요합니다.")
+                        _validate_pokemon_level_overrides(
+                            custom.get("level_overrides", []), issues, path,
+                            f"{tile_path}.pokemon_habitat.pokemon_spawns.level_overrides", known_pokemon
+                        )
+                        _validate_pokemon_time_overrides(
+                            custom.get("time_overrides"), issues, path,
+                            f"{tile_path}.pokemon_habitat.pokemon_spawns.time_overrides", known_pokemon
+                        )
+                        _validate_route_encounter_pools(
+                            custom, issues, path,
+                            f"{tile_path}.pokemon_habitat.pokemon_spawns"
+                        )
         environment_overrides = world.get("environment_overrides", [])
         if not isinstance(environment_overrides, list):
             _issue(issues, "error", path, "$.environment_overrides", "기후 오버라이드 배열이 필요합니다.")
@@ -1176,6 +1211,10 @@ def validate_hex_worlds(
                     _validate_pokemon_level_overrides(
                         pokemon_spawns.get("level_overrides", []), issues, path,
                         f"{connection_path}.pokemon_spawns.level_overrides", known_pokemon
+                    )
+                    _validate_pokemon_time_overrides(
+                        pokemon_spawns.get("time_overrides"), issues, path,
+                        f"{connection_path}.pokemon_spawns.time_overrides", known_pokemon
                     )
                     _validate_route_encounter_pools(
                         pokemon_spawns, issues, path,
@@ -1785,6 +1824,11 @@ def _apply_route_encounter_locations(locations, connections, route_documents, po
                     entry["species"]: {"min_level": entry["min_level"], "max_level": entry["max_level"]}
                     for entry in pool.get("level_overrides", []) if entry.get("species") in ids
                 },
+                "time_overrides": {
+                    entry["species"]: entry["time"]
+                    for entry in pool.get("time_overrides", [])
+                    if isinstance(entry, dict) and entry.get("species") in ids
+                },
             }
         if not methods:
             continue
@@ -2009,6 +2053,35 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
 
     connections = [entry for entry in world.get("connections", []) if isinstance(entry, dict)]
     _apply_route_encounter_locations(locations_by_cell, connections, route_documents, pokemon_by_id)
+    connections_by_id = {
+        entry.get("id"): entry for entry in connections if isinstance(entry.get("id"), str)
+    }
+    for tile in world.get("tiles", []):
+        if not isinstance(tile, dict) or not isinstance(tile.get("pokemon_habitat"), dict):
+            continue
+        habitat = tile["pokemon_habitat"]
+        if habitat.get("source") not in {"route", "custom"}:
+            continue
+        q, r = tile.get("q"), tile.get("r")
+        if not isinstance(q, int) or not isinstance(r, int):
+            continue
+        synthetic = {
+            "id": f"tile_{q}_{r}", "cells": [{"q": q, "r": r}],
+            "surface_style": "water" if any(part in str(tile.get("biome", "")) for part in ("ocean", "river")) else "natural",
+        }
+        if habitat.get("source") == "route":
+            source = connections_by_id.get(habitat.get("route_id"))
+            if source is None:
+                continue
+            synthetic["id"] = source.get("id", synthetic["id"])
+            synthetic["route_preset"] = source.get("route_preset")
+            if isinstance(source.get("pokemon_spawns"), dict):
+                synthetic["pokemon_spawns"] = source["pokemon_spawns"]
+        else:
+            synthetic["pokemon_spawns"] = habitat.get("pokemon_spawns", {})
+        _apply_route_encounter_locations(
+            locations_by_cell, [synthetic], route_documents, pokemon_by_id
+        )
 
     area_locations: list[dict[str, Any]] = []
     for kind, document in area_documents:
@@ -2066,6 +2139,11 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
             "minimum_level": settings.get("minimum_level", 1),
             "maximum_level": settings.get("maximum_level", 100),
             "custom_level_ranges": custom_level_ranges,
+            "time_overrides": {
+                override["species"]: override["time"]
+                for override in settings.get("time_overrides", [])
+                if isinstance(override, dict) and override.get("species") in selected_ids
+            },
             "count": len(selected_ids),
         })
 
@@ -4610,6 +4688,15 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
                     "맵 레벨 보정은 -99~99 정수여야 합니다.",
                 )
         rules = _require_object(battle.get("rules"), issues, path, "$.battle.rules")
+        if (rules is not None and "can_forfeit" in rules
+            and not isinstance(rules.get("can_forfeit"), bool)):
+            _issue(
+                issues,
+                "error",
+                path,
+                "$.battle.rules.can_forfeit",
+                "boolean이어야 합니다.",
+            )
         if rules is not None and "max_item_uses" in rules:
             max_item_uses = rules.get("max_item_uses")
             if (
@@ -8228,6 +8315,31 @@ def _validate_pokemon_level_overrides(
             _issue(issues, "error", path, override_path, "개별 레벨 범위는 1~100이며 최소가 최대보다 클 수 없습니다.")
 
 
+def _validate_pokemon_time_overrides(
+    overrides: Any, issues: list[Issue], path: Path, base: str,
+    known_pokemon: set[str] | None = None,
+) -> None:
+    if overrides is None:
+        return
+    if not isinstance(overrides, list):
+        _issue(issues, "error", path, base, "포켓몬 시간대 설정은 배열이어야 합니다.")
+        return
+    seen: set[str] = set()
+    for index, override in enumerate(overrides):
+        override_path = f"{base}[{index}]"
+        species = override.get("species") if isinstance(override, dict) else None
+        if not isinstance(species, str) or not RESOURCE_ID.fullmatch(species):
+            _issue(issues, "error", path, f"{override_path}.species", "올바른 포켓몬 리소스 ID가 필요합니다.")
+        elif species in seen:
+            _issue(issues, "error", path, f"{override_path}.species", f"중복 시간대 포켓몬: {species}")
+        elif known_pokemon is not None and species not in known_pokemon:
+            _issue(issues, "error", path, f"{override_path}.species", f"포켓몬 카탈로그에 없는 종입니다: {species}")
+        else:
+            seen.add(species)
+        if isinstance(override, dict) and override.get("time") not in {"any", "day", "night"}:
+            _issue(issues, "error", path, f"{override_path}.time", "시간대는 any, day, night 중 하나여야 합니다.")
+
+
 def _validate_pursuit_encounters(encounters: Any, issues: list[Issue], path: Path) -> None:
     base = "$.random_encounters"
     if not isinstance(encounters, dict):
@@ -8274,6 +8386,7 @@ def _validate_pursuit_encounters(encounters: Any, issues: list[Issue], path: Pat
         if "spawn_as_evolved" in addition and not isinstance(addition["spawn_as_evolved"], bool):
             _issue(issues, "error", path, f"{addition_path}.spawn_as_evolved", "진화본 출현 여부는 true 또는 false여야 합니다.")
     _validate_pokemon_level_overrides(encounters.get("level_overrides", []), issues, path, f"{base}.level_overrides")
+    _validate_pokemon_time_overrides(encounters.get("time_overrides"), issues, path, f"{base}.time_overrides")
 
 
 def _validate_embedded_sites(
@@ -8815,6 +8928,9 @@ def _validate_route_encounter_pools(
                     weight = entry.get("weight", 1)
                     if not isinstance(weight, int) or isinstance(weight, bool) or not 1 <= weight <= 10000:
                         _issue(issues, "error", path, f"{entry_path}.weight", "가중치는 1~10000 정수여야 합니다.")
+        _validate_pokemon_time_overrides(
+            pool.get("time_overrides"), issues, path, f"{pool_path}.time_overrides"
+        )
 
 
 def validate_route_file(path: Path) -> tuple[str | None, list[Issue]]:
@@ -8926,6 +9042,9 @@ def validate_route_file(path: Path) -> tuple[str | None, list[Issue]]:
                     if not isinstance(weight, int) or isinstance(weight, bool) or not 1 <= weight <= 10000:
                         _issue(issues, "error", path, f"{base}.weight", "가중치는 1~10000 정수여야 합니다.")
         _validate_route_encounter_pools(pokemon, issues, path, "$.pokemon_spawns")
+        _validate_pokemon_time_overrides(
+            pokemon.get("time_overrides"), issues, path, "$.pokemon_spawns.time_overrides"
+        )
 
     placements = data.get("npc_placements")
     if not isinstance(placements, list):
@@ -11565,6 +11684,7 @@ def _cave_template(slug: str, name: str, generation: str) -> dict[str, Any]:
             "excluded_species": [],
             "additions": [],
             "level_overrides": [],
+            "time_overrides": [],
         },
         "trainer_settings": {"enabled": False, "max_active": 0, "use_biome_defaults": True, "direct_trainers": [], "class_pool": [], "placements": []},
         "entrances": [
@@ -11621,6 +11741,7 @@ def _forest_template(slug: str, name: str, generation: str) -> dict[str, Any]:
             "excluded_species": [],
             "additions": [],
             "level_overrides": [],
+            "time_overrides": [],
         },
         "trainer_settings": {
             "enabled": False, "max_active": 0,
@@ -11680,6 +11801,7 @@ def _route_template(slug: str, name: str) -> dict[str, Any]:
             "excluded_species": [],
             "additions": [],
             "level_overrides": [],
+            "time_overrides": [],
         },
         "automatic_npc_placement": {"enabled": False, "count": 0, "use_biome_defaults": True, "direct_trainers": []},
         "npc_placements": [],

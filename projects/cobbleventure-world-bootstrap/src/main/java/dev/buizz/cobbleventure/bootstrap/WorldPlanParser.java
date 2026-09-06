@@ -195,7 +195,7 @@ final class WorldPlanParser {
         }
         return new RoutePokemonSpawns(
             land.inheritBiome(), land.excludedSpecies(), land.additions(),
-            land.levelOverrides(), Map.copyOf(encounterPools)
+            land.levelOverrides(), land.timeOverrides(), Map.copyOf(encounterPools)
         );
     }
 
@@ -236,9 +236,17 @@ final class WorldPlanParser {
                 levelOverrides.put(parsed.species(), parsed);
             }
         }
+        Map<String, String> timeOverrides = new java.util.LinkedHashMap<>();
+        if (value.has("time_overrides")) {
+            for (JsonElement element : value.getAsJsonArray("time_overrides")) {
+                JsonObject override = element.getAsJsonObject();
+                timeOverrides.put(required(override, "species"), required(override, "time"));
+            }
+        }
         return new RoutePokemonPool(
             !value.has("inherit_biome") || value.get("inherit_biome").getAsBoolean(),
             Set.copyOf(excluded), List.copyOf(additions), Map.copyOf(levelOverrides),
+            Map.copyOf(timeOverrides),
             legacyLandPool || !value.has("enabled") || value.get("enabled").getAsBoolean(),
             value.has("trigger_chance")
                 ? value.get("trigger_chance").getAsDouble() : 1.0D
@@ -256,10 +264,21 @@ final class WorldPlanParser {
             requireBoundary(profiles, boundary);
             result.add(new PlacedTile(
                 coordinate(value), required(value, "biome"), boundary,
-                terrainProfile(value), optional(value, "access_requirement")
+                terrainProfile(value), optional(value, "access_requirement"),
+                tilePokemonHabitat(value)
             ));
         }
         return List.copyOf(result);
+    }
+
+    private static TilePokemonHabitat tilePokemonHabitat(JsonObject tile) {
+        if (!tile.has("pokemon_habitat")) return TilePokemonHabitat.biome();
+        JsonObject value = tile.getAsJsonObject("pokemon_habitat");
+        String source = required(value, "source");
+        return new TilePokemonHabitat(
+            source, optional(value, "route_id"),
+            source.equals("custom") ? routePokemonSpawns(value) : RoutePokemonSpawns.inherited()
+        );
     }
 
     static List<CaveEntrancePlan> caveEntrances(JsonObject root) {

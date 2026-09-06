@@ -763,9 +763,14 @@ def battle_command(document: dict, start_battle: dict | None = None) -> str:
     # (for example "AI 맨") break the TBCS participant parser. Command actions
     # execute as the NPC entity, so vanilla @s is the stable entity selector.
     command = f"/tbcs battle {battle['format']} @initiator vs @s as rctmod:{slug}"
+    runtime_rules = {}
+    if rules.get("can_forfeit") is False:
+        runtime_rules["canForfeit"] = False
     if "max_item_uses" in rules:
+        runtime_rules["maxItemUses"] = rules["max_item_uses"]
+    if runtime_rules:
         command += " rules " + json.dumps(
-            {"maxItemUses": rules["max_item_uses"]}, separators=(",", ":")
+            runtime_rules, separators=(",", ":")
         ).replace('"', "")
     result_commands: dict[int, list[str]] = {}
     for side, result_key in ((1, "player_win"), (2, "player_loss")):

@@ -1,5 +1,10 @@
 package dev.buizz.cobbleventure.playermenu;
 
+import com.cobblemon.mod.common.api.Priority;
+import com.cobblemon.mod.common.api.events.CobblemonEvents;
+import com.cobblemon.mod.common.api.events.pokemon.EvGainedEvent;
+import com.cobblemon.mod.common.api.pokemon.stats.BattleEvSource;
+import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
 import com.cobblemon.mod.common.pokemon.EVs;
 import com.cobblemon.mod.common.pokemon.Pokemon;
@@ -14,6 +19,13 @@ public final class BattleLevelCap {
     private static final int UNRESTRICTED_LEVEL_CAP = 100;
 
     private BattleLevelCap() {}
+
+    public static void register() {
+        CobblemonEvents.EV_GAINED_EVENT_POST.subscribe(
+            Priority.LOWEST,
+            BattleLevelCap::persistBattleCloneEvGain
+        );
+    }
 
     public static List<BattlePokemon> adjustPlayerTeam(
         UUID playerId, List<? extends BattlePokemon> team
@@ -48,6 +60,10 @@ public final class BattleLevelCap {
         Pokemon currentBattleCopy = source.getEffectedPokemon();
         if (currentBattleCopy != original) {
             lowerLevelAndScaleHealth(currentBattleCopy, levelCap);
+            source.getPostBattlePokemonOperations().add(ignored -> {
+                copyPersistentBattleState(original, currentBattleCopy);
+                return kotlin.Unit.INSTANCE;
+            });
             return source;
         }
 
@@ -62,6 +78,34 @@ public final class BattleLevelCap {
         });
         scaled.getPostBattleEntityOperations().addAll(source.getPostBattleEntityOperations());
         return scaled;
+    }
+
+    /**
+     * Cobblemon awards battle EVs to the affected battle Pokemon. A level-capped
+     * Pokemon fights as a clone, so mirror the actual awarded amount into the
+     * stored Pokemon immediately instead of relying only on battle-end cleanup.
+     */
+    private static void persistBattleCloneEvGain(EvGainedEvent.Post event) {
+        if (event.getAmount() <= 0 || !(event.getSource() instanceof BattleEvSource source)) {
+            return;
+        }
+
+        Pokemon affected = event.getPokemon();
+        for (var actor : source.getBattle().getActors()) {
+            if (!(actor instanceof PlayerBattleActor)) {
+                continue;
+            }
+            for (BattlePokemon battlePokemon : actor.getPokemonList()) {
+                if (battlePokemon.getEffectedPokemon() != affected) {
+                    continue;
+                }
+                Pokemon original = battlePokemon.getOriginalPokemon();
+                if (original != affected) {
+                    original.getEvs().add(event.getStat(), event.getAmount());
+                }
+                return;
+            }
+        }
     }
 
     private static void lowerLevelAndScaleHealth(Pokemon pokemon, int levelCap) {

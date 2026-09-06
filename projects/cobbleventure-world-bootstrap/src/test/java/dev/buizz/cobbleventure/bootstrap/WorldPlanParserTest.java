@@ -9,6 +9,35 @@ import org.junit.jupiter.api.Test;
 
 final class WorldPlanParserTest {
     @Test
+    void parsesTileRouteAndCustomHabitatsWithTimeOverrides() {
+        var root = JsonParser.parseString("""
+            {"tiles":[
+              {"q":1,"r":2,"biome":"minecraft:plains",
+               "boundary_profile":"cobbleventure:boundary/earthwork",
+               "terrain_profile":{"base_height_offset":0,"height_variation":3,"noise_scale_blocks":96},
+               "pokemon_habitat":{"source":"route","route_id":"route_one"}},
+              {"q":2,"r":2,"biome":"minecraft:forest",
+               "boundary_profile":"cobbleventure:boundary/earthwork",
+               "terrain_profile":{"base_height_offset":0,"height_variation":3,"noise_scale_blocks":96},
+               "pokemon_habitat":{"source":"custom","pokemon_spawns":{
+                 "inherit_biome":false,"excluded_species":[],"additions":[],"level_overrides":[],
+                 "time_overrides":[{"species":"cobblemon:hoothoot","time":"night"}]
+               }}}
+            ]}
+            """).getAsJsonObject();
+        String boundaryId = "cobbleventure:boundary/earthwork";
+        var boundary = new WorldPlanModels.BoundaryProfile(boundaryId, "earthwork", 1, 1, 1,
+            "solid", "minecraft:stone", List.of(), null);
+
+        var tiles = WorldPlanParser.tiles(root, Map.of(boundaryId, boundary));
+
+        assertEquals("route", tiles.get(0).pokemonHabitat().source());
+        assertEquals("route_one", tiles.get(0).pokemonHabitat().routeId());
+        assertEquals("night", tiles.get(1).pokemonHabitat().pokemonSpawns()
+            .timeOverrides().get("cobblemon:hoothoot"));
+    }
+
+    @Test
     void preservesAuthoredLevelWeightsAndLegacyUniformRanges() {
         var root = JsonParser.parseString("""
             {"connections": [{"id":"route_one", "corridor_width_blocks":12,

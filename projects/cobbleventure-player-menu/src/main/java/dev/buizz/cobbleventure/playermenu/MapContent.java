@@ -18,6 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /** Shared, read-only map data packaged from the content editor. */
 public final class MapContent {
@@ -317,10 +318,14 @@ public final class MapContent {
             }
         }
         Map<Hex, BiomeTile> tiles = new LinkedHashMap<>();
+        Map<Hex, JsonObject> tilePokemonHabitats = new LinkedHashMap<>();
         for (JsonElement element : world.getAsJsonArray("tiles")) {
             JsonObject tile = element.getAsJsonObject();
             Hex hex = new Hex(tile.get("q").getAsInt(), tile.get("r").getAsInt());
             tiles.put(hex, new BiomeTile(hex, tile.get("biome").getAsString()));
+            if (tile.has("pokemon_habitat") && tile.get("pokemon_habitat").isJsonObject()) {
+                tilePokemonHabitats.put(hex, tile.getAsJsonObject("pokemon_habitat"));
+            }
         }
 
         List<Town> towns = new ArrayList<>();
@@ -434,14 +439,23 @@ public final class MapContent {
                 ));
             }
         }
-        Map<Hex, BiomeInfo> tileHabitats = applyRouteHabitats(
+        Map<Hex, BiomeInfo> tileHabitats = new LinkedHashMap<>(applyRouteHabitats(
             spawnBiomes, routeEncounters, pokemonCatalog, towns, "land"
+        ));
+        applyTileHabitatOverrides(
+            tileHabitats, spawnBiomes, tilePokemonHabitats, routeEncounters,
+            pokemonCatalog, "land"
         );
         Map<String, Map<Hex, BiomeInfo>> methodHabitats = new LinkedHashMap<>();
         for (String method : ENCOUNTER_METHODS) {
-            methodHabitats.put(method, applyRouteHabitats(
+            Map<Hex, BiomeInfo> habitats = new LinkedHashMap<>(applyRouteHabitats(
                 spawnBiomes, routeEncounters, pokemonCatalog, towns, method
             ));
+            applyTileHabitatOverrides(
+                habitats, spawnBiomes, tilePokemonHabitats, routeEncounters,
+                pokemonCatalog, method
+            );
+            methodHabitats.put(method, Map.copyOf(habitats));
         }
         LoadedCaves loadedCaves = loadCaves(generation, world, loadedBiomes.byBiome(), pokemonCatalog);
         LoadedForests loadedForests = loadForests(generation, world, loadedBiomes.byBiome(), pokemonCatalog);
@@ -515,6 +529,42 @@ public final class MapContent {
             ));
         }
         return Map.copyOf(result);
+    }
+
+    private static void applyTileHabitatOverrides(
+        Map<Hex, BiomeInfo> result,
+        Map<Hex, BiomeInfo> biomeHabitats,
+        Map<Hex, JsonObject> tilePokemonHabitats,
+        List<RouteEncounter> routeEncounters,
+        Map<String, Pokemon> pokemonCatalog,
+        String method
+    ) {
+        Map<String, RouteEncounter> routesById = routeEncounters.stream().collect(
+            Collectors.toMap(RouteEncounter::id, route -> route, (left, right) -> left)
+        );
+        for (Map.Entry<Hex, JsonObject> entry : tilePokemonHabitats.entrySet()) {
+            Hex cell = entry.getKey();
+            JsonObject habitat = entry.getValue();
+            String source = stringValue(habitat, "source", "biome");
+            if (source.equals("biome")) continue;
+
+            RouteEncounter sourceRoute = source.equals("route")
+                ? routesById.get(stringValue(habitat, "route_id", "")) : null;
+            if (source.equals("route") && sourceRoute == null) continue;
+            JsonObject settings = sourceRoute != null ? sourceRoute.settings()
+                : habitat.has("pokemon_spawns") && habitat.get("pokemon_spawns").isJsonObject()
+                    ? habitat.getAsJsonObject("pokemon_spawns") : new JsonObject();
+            String id = sourceRoute != null ? sourceRoute.id() : "tile_" + cell.q() + "_" + cell.r();
+            String name = sourceRoute != null ? sourceRoute.name() : "타일 개별 서식지";
+            RouteEncounter override = new RouteEncounter(
+                id, name, "tile_override", List.of(), List.of(cell), settings
+            );
+            Map<Hex, BiomeInfo> resolved = applyRouteHabitats(
+                biomeHabitats, List.of(override), pokemonCatalog, List.of(), method
+            );
+            result.remove(cell);
+            if (resolved.containsKey(cell)) result.put(cell, resolved.get(cell));
+        }
     }
 
     private static List<Hex> hexCoordinates(JsonObject object, String key) {

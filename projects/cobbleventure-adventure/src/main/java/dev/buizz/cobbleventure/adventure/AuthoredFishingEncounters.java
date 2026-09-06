@@ -39,7 +39,9 @@ final class AuthoredFishingEncounters {
         if (rule == null) return;
         if (!rule.enabled()
             || spawn.getWorld().getRandom().nextDouble() > rule.triggerChance()
-            || !rule.inheritBiome() && rule.additions().isEmpty()) {
+            || !rule.inheritBiome() && WildSpawnLeveling.activeAdditions(
+                rule, spawn.getWorld().isDay()
+            ).isEmpty()) {
             event.cancel();
         }
     }
@@ -56,8 +58,9 @@ final class AuthoredFishingEncounters {
         AdventureWorldContext.WildSpawnAddition addition =
             WildSpawnLeveling.selectAddition(entity, pokemon, rule);
         if (addition == null && WildSpawnLeveling.shouldCancel(pokemon, rule)) {
-            if (rule.additions().isEmpty()) return;
-            addition = WildSpawnLeveling.randomAddition(entity, rule.additions());
+            var additions = WildSpawnLeveling.activeAdditions(rule, spawn.getWorld().isDay());
+            if (additions.isEmpty()) return;
+            addition = WildSpawnLeveling.randomAddition(entity, additions);
         }
 
         Integer averageLevel = CobbleventureAdventure.averageWildSpawnLevel(

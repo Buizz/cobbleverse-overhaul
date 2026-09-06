@@ -96,6 +96,7 @@ dist/cobbleventure-<profile>-<version>-curseforge.zip
 | `build.bat generate` | RCT 트레이너와 실제 게임용 AI 런타임 프로필 생성 | 정규화 콘텐츠 변경 후 |
 | `build.bat pack-smoke` | Minecraft·NeoForge만 포함한 최소 CurseForge 임포트 ZIP 생성 | 패키징 파이프라인과 CurseForge 앱 임포트 확인 시 |
 | `build.bat pack` | 일반 콘텐츠 검증 후 임시 개발 ZIP 생성 | 개발 자산 취합 흐름 확인 시 |
+| `build.bat pack-server` | `server/both` 의존성과 서버 설정으로 NeoForge 서버 준비 ZIP 생성 | 전용 서버 배포 파일을 만들 때 |
 | `build.bat pack-release` | 정식 의존성 Lock과 공개 패키징 준비 검사 | 배포 후보 생성 전 |
 
 `validate`는 `draft` 의존성의 미확정 버전을 경고로 허용하지만,
@@ -176,6 +177,11 @@ PNG를 사용한다. 사설 CurseForge ZIP은 manifest의 `image` 필드에 ZIP 
 안전한 엔트리 경로와 manifest 일치 검사를 구현한다. 정식 개발 팩은 의존성
 Lock이 확정된 뒤 같은 `pack` 진입점에 외부 모드와 자체 JAR 취합을 추가한다.
 `pack-release`는 그 전까지 릴리스 ZIP을 만들지 않는다.
+
+`pack-server`는 같은 Lock의 `side`를 기준으로 `server`와 `both` 의존성만
+`server-manifest.json`에 기록한다. 개발 팩의 자체 JAR과 서버 설정은 ZIP에 직접
+넣고, 클라이언트 전용 설정·셰이더·리소스팩은 제외한다. 외부 JAR와 NeoForge는
+ZIP의 `setup-server.ps1`이 고정 ID와 버전으로 설치하며 EULA는 자동 동의하지 않는다.
 
 ## 8. 빌드 단계와 실패 정책
 

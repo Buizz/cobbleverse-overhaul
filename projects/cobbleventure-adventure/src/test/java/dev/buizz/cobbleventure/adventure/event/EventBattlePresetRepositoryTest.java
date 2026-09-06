@@ -57,6 +57,25 @@ final class EventBattlePresetRepositoryTest {
     }
 
     @Test
+    void noForfeitRuleIsForwardedToTbcsTogetherWithItemLimit() {
+        EventBattlePresetRepository repository = new EventBattlePresetRepository();
+        var value = JsonParser.parseString(document(
+            "cobbleventure:battle/required", "fixed", 0, 20, 3
+        ).toString().replace(
+            "\"rules\":{\"max_item_uses\":3}",
+            "\"rules\":{\"can_forfeit\":false,\"max_item_uses\":3}"
+        ));
+        repository.replace(Map.of(ResourceLocation.parse("cobbleventure:required"), value));
+
+        EventBattlePreset preset = repository.find("cobbleventure:battle/required")
+            .orElseThrow();
+        assertEquals(false, preset.canForfeit());
+        assertTrue(preset.launchCommand("Red", NPC).contains(
+            "rules {canForfeit:false,maxItemUses:3}"
+        ));
+    }
+
+    @Test
     void loadsRegionalMoneyRewardForTheBattleAwaitAdapter() {
         EventBattlePresetRepository repository = new EventBattlePresetRepository();
         var value = JsonParser.parseString(document(

@@ -76,6 +76,7 @@ public interface AdventureWorldContext {
         Set<ResourceLocation> excludedSpecies,
         List<WildSpawnAddition> additions,
         Map<ResourceLocation, WildSpawnLevelRange> levelOverrides,
+        Map<ResourceLocation, String> timeOverrides,
         boolean enabled,
         double triggerChance
     ) {
@@ -86,8 +87,22 @@ public interface AdventureWorldContext {
             Map<ResourceLocation, WildSpawnLevelRange> levelOverrides
         ) {
             this(
-                inheritBiome, excludedSpecies, additions, levelOverrides,
+                inheritBiome, excludedSpecies, additions, levelOverrides, Map.of(),
                 true, 1.0D
+            );
+        }
+
+        public WildSpawnRule(
+            boolean inheritBiome,
+            Set<ResourceLocation> excludedSpecies,
+            List<WildSpawnAddition> additions,
+            Map<ResourceLocation, WildSpawnLevelRange> levelOverrides,
+            boolean enabled,
+            double triggerChance
+        ) {
+            this(
+                inheritBiome, excludedSpecies, additions, levelOverrides, Map.of(),
+                enabled, triggerChance
             );
         }
 
@@ -95,6 +110,7 @@ public interface AdventureWorldContext {
             excludedSpecies = Set.copyOf(excludedSpecies);
             additions = List.copyOf(additions);
             levelOverrides = Map.copyOf(levelOverrides);
+            timeOverrides = Map.copyOf(timeOverrides);
             triggerChance = Math.max(0.0D, Math.min(1.0D, triggerChance));
         }
     }

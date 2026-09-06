@@ -201,7 +201,7 @@ public final class BattleIntroOverlay {
         int clipRight = Math.min(graphics.guiWidth(), right);
         int clipBottom = Math.min(graphics.guiHeight(), bottom);
         if (clipRight <= clipLeft || clipBottom <= clipTop) return;
-        int scale = Math.max(42, Math.min(96, bottom - top - 8));
+        int scale = BattleIntroPortraitLayout.scaleForHeight(bottom - top);
         graphics.enableScissor(clipLeft, clipTop, clipRight, clipBottom);
         InventoryScreen.renderEntityInInventoryFollowsAngle(
             graphics, left, top, right, bottom, scale, 0.0625F,

@@ -60,6 +60,19 @@ final class HabitatSpawnRulesTest {
     }
 
     @Test
+    void authoredTimeOverridesFilterDayAndNightPools() {
+        AdventureWorldContext.WildSpawnRule rule = new AdventureWorldContext.WildSpawnRule(
+            false, Set.of(), List.of(addition(PIDGEY), addition(EKANS)), Map.of(),
+            Map.of(PIDGEY, "day", EKANS, "night"), true, 1.0D
+        );
+
+        assertEquals(Set.of(PIDGEY), HabitatSpawnRules.applyRouteRule(Set.of(), rule, true));
+        assertEquals(Set.of(EKANS), HabitatSpawnRules.applyRouteRule(Set.of(), rule, false));
+        assertEquals(Map.of(PIDGEY, 1), HabitatSpawnRules.exclusiveRouteWeights(rule, true));
+        assertEquals(Map.of(EKANS, 1), HabitatSpawnRules.exclusiveRouteWeights(rule, false));
+    }
+
+    @Test
     void oceanWaterHeightIsNotAcceptedAsLogBridgeDeck() {
         int oceanDeckY = CobbleventureBootstrap.WATER_SURFACE_Y + 1;
 

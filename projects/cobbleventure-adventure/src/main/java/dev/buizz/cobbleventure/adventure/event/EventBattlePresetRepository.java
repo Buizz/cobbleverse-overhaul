@@ -115,9 +115,13 @@ public final class EventBattlePresetRepository extends SimplePreparableReloadLis
             int levelOffset = battle.has("level_offset")
                 ? integer(battle, "level_offset", path + ".battle") : 0;
             int fallbackLevel = fallbackLevel(battle, path);
+            boolean canForfeit = true;
             Integer maxItemUses = null;
             if (battle.has("rules")) {
                 JsonObject rules = object(battle.get("rules"), path + ".battle.rules");
+                if (rules.has("can_forfeit")) {
+                    canForfeit = bool(rules, "can_forfeit", path + ".battle.rules");
+                }
                 if (rules.has("max_item_uses")) {
                     maxItemUses = integer(rules, "max_item_uses", path + ".battle.rules");
                 }
@@ -133,7 +137,7 @@ public final class EventBattlePresetRepository extends SimplePreparableReloadLis
             try {
                 preset = new EventBattlePreset(
                     battleId, trainerId, format, levelMode,
-                    levelOffset, fallbackLevel, maxItemUses, moneyReward
+                    levelOffset, fallbackLevel, canForfeit, maxItemUses, moneyReward
                 );
             } catch (IllegalArgumentException error) {
                 throw invalid(path, error.getMessage());

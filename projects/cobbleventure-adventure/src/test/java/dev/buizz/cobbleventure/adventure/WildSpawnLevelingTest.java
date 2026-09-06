@@ -12,6 +12,23 @@ import org.junit.jupiter.api.Test;
 
 final class WildSpawnLevelingTest {
     @Test
+    void filtersAuthoredAdditionsByDayAndNight() {
+        var pidgey = ResourceLocation.parse("cobblemon:pidgey");
+        var hoothoot = ResourceLocation.parse("cobblemon:hoothoot");
+        var rule = new AdventureWorldContext.WildSpawnRule(
+            false, Set.of(), List.of(
+                new AdventureWorldContext.WildSpawnAddition(pidgey, false),
+                new AdventureWorldContext.WildSpawnAddition(hoothoot, false)
+            ), Map.of(), Map.of(pidgey, "day", hoothoot, "night"), true, 1.0D
+        );
+
+        assertEquals(List.of(pidgey), WildSpawnLeveling.activeAdditions(rule, true)
+            .stream().map(AdventureWorldContext.WildSpawnAddition::species).toList());
+        assertEquals(List.of(hoothoot), WildSpawnLeveling.activeAdditions(rule, false)
+            .stream().map(AdventureWorldContext.WildSpawnAddition::species).toList());
+    }
+
+    @Test
     void routeOneLevelsMatchFireRedSlotsEvenWithHighWorldAverage() {
         var pidgey = ResourceLocation.parse("cobblemon:pidgey");
         var rattata = ResourceLocation.parse("cobblemon:rattata");

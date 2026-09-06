@@ -224,6 +224,7 @@
         "rules": {
           "type": "object",
           "properties": {
+            "can_forfeit": { "type": "boolean" },
             "max_item_uses": { "type": "integer", "minimum": 0 }
           }
         },

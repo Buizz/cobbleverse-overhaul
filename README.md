@@ -256,6 +256,7 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 | `build.bat mod-menu` | 인벤토리 키 기반 원형 플레이어 메뉴 NeoForge 모드 빌드 | 개발 팩 `overrides/mods`에 JAR 생성 |
 | `build.bat pack-smoke` | 최소 CurseForge 임포트 테스트 ZIP 생성·재검증 | `dist`에 ZIP과 SHA-256 생성 |
 | `build.bat pack` | 일반 콘텐츠 검증 후 임시 개발 팩 생성 | 임포트 가능한 개발용 ZIP과 SHA-256 생성 |
+| `build.bat pack-server` | 개발 팩을 빌드한 뒤 서버·양쪽 모드와 서버 설정만 취합 | `dist`에 NeoForge 서버 준비 ZIP과 SHA-256 생성 |
 | `build.bat pack-release` | 정식 의존성·배포 준비 상태를 엄격 검사 | 현재는 누락 항목을 출력하고 실패하는 것이 정상 |
 | `build.bat builder-world` | 독립 건축 평지 월드와 경량 CurseForge 프로필 생성 | `dist`에 건축용 ZIP과 SHA-256 생성 |
 | `build.bat builder-import "<월드 경로>"` | 게임에서 내보낸 NBT를 활성 프로젝트의 `content/structures`에 반영 | 전체 관리 NBT의 완전성·크기 검사 후 변경 파일만 교체 |
@@ -268,6 +269,11 @@ Web의 **빌드 작업** 화면에서는 Cobblemon 빌드 대상을 `1.7.3 안�
 `1.8 스냅샷` 중에서 선택할 수 있습니다. 기본값은 계속 1.7.3이며, 선택값은
 해당 실행에만 전달됩니다. 1.8 전체 개발 팩은 아직 지원하지 않으므로 1.8은
 `test`와 `mod-*` 호환성 빌드에 사용합니다.
+
+`pack-server` 결과에는 `server.properties`, JVM 메모리 기본값, EULA 확인 파일,
+서버 시작 스크립트와 `setup-server.ps1`이 포함됩니다. 설치 스크립트는 Java 21과
+CurseForge API 키를 사용해 고정된 NeoForge 및 서버용 외부 모드를 내려받습니다.
+EULA는 자동 동의하지 않으며 서버 운영자가 내용을 확인한 뒤 직접 변경해야 합니다.
 
 ### 플랫폼 독립 Java 프로젝트 빌드
 

@@ -10,6 +10,7 @@ import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.google.gson.JsonObject;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,10 +18,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
@@ -29,6 +33,8 @@ public final class EventBattleBridge {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final long AWAIT_TIMEOUT_MILLIS = 30L * 60L * 1000L;
     private static final long START_TIMEOUT_TICKS = 20L * 20L;
+    private static final long RECONNECT_RESTART_DELAY_TICKS = 10L;
+    private static final String INTERRUPTED_BATTLE_TAG = "cobbleventureInterruptedBattle";
     private static final int MAX_RESUME_STEPS = 10_000;
     private static final Map<UUID, PendingBattle> PENDING = new HashMap<>();
     private static volatile BattleLaunchOverride battleLaunchOverride;
@@ -40,6 +46,8 @@ public final class EventBattleBridge {
         if (registered) return;
         registered = true;
         NeoForge.EVENT_BUS.addListener(EventBattleBridge::onServerTick);
+        NeoForge.EVENT_BUS.addListener(EventBattleBridge::onPlayerLoggedOut);
+        NeoForge.EVENT_BUS.addListener(EventBattleBridge::onPlayerLoggedIn);
         CobblemonEvents.BATTLE_STARTED_POST.subscribe(
             (Consumer<BattleStartedEvent.Post>) EventBattleBridge::onBattleStarted
         );
@@ -113,46 +121,7 @@ public final class EventBattleBridge {
         );
         PENDING.put(player.getUUID(), pending);
         try {
-            cancelLegacyProximity(player);
-            EventBattlePreset.MoneyReward reward = rewardFor(
-                preset, EventNpcBindingRepository.instance().findByEntityTags(opponent.getTags())
-                    .orElse(null), request.sessionKey().scriptId()
-            );
-            if (reward != null) {
-                String rewardCommand = reward.prepareCommand(
-                        player.getGameProfile().getName(),
-                        new ServerPlayerEventState(player, request.sessionKey().npcId())::flag
-                );
-                if (rewardCommand != null) {
-                    int prepared = player.getServer().getCommands().getDispatcher().execute(
-                        rewardCommand,
-                        player.createCommandSourceStack().withPermission(4).withSuppressedOutput()
-                    );
-                    if (prepared <= 0) {
-                        throw new EventRuntimeException("battle 상금 준비 명령이 거부됐습니다.");
-                    }
-                }
-            }
-            BattleLaunchOverride override = battleLaunchOverride;
-            if (override != null && override.launch(player, preset, opponent)) {
-                // The override owns launch validation.
-            } else {
-                int accepted = player.getServer().getCommands().getDispatcher().execute(
-                    preset.launchCommand(
-                        player.getGameProfile().getName(), opponent.getUUID()
-                    ),
-                    opponent.createCommandSourceStack()
-                        .withPermission(4).withSuppressedOutput()
-                );
-                // The cinematic intro deliberately launches TBCS a few ticks later.
-                // Immediate BattleRegistry presence therefore cannot be used as
-                // success proof; the bridge timeout validates eventual attachment.
-                if (accepted <= 0) {
-                    throw new EventRuntimeException(
-                        "battle 시작 예약 명령이 거부됐습니다."
-                    );
-                }
-            }
+            launch(player, pending, opponent);
         } catch (CommandSyntaxException | RuntimeException error) {
             PENDING.remove(player.getUUID(), pending);
             throw new EventRuntimeException("battle 시작 명령 실행에 실패했습니다.", error);
@@ -160,6 +129,42 @@ public final class EventBattleBridge {
         return new EventBattleGateway.OpenResult(
             token, System.currentTimeMillis() + AWAIT_TIMEOUT_MILLIS
         );
+    }
+
+    private static void launch(
+        ServerPlayer player, PendingBattle pending, Entity opponent
+    ) throws CommandSyntaxException {
+        cancelLegacyProximity(player);
+        EventBattlePreset.MoneyReward reward = rewardFor(
+            pending.preset,
+            EventNpcBindingRepository.instance().findByEntityTags(opponent.getTags()).orElse(null),
+            pending.key.scriptId()
+        );
+        if (reward != null) {
+            String rewardCommand = reward.prepareCommand(
+                player.getGameProfile().getName(),
+                new ServerPlayerEventState(player, pending.key.npcId())::flag
+            );
+            if (rewardCommand != null) {
+                int prepared = player.getServer().getCommands().getDispatcher().execute(
+                    rewardCommand,
+                    player.createCommandSourceStack().withPermission(4).withSuppressedOutput()
+                );
+                if (prepared <= 0) {
+                    throw new EventRuntimeException("battle 상금 준비 명령이 거부됐습니다.");
+                }
+            }
+        }
+        BattleLaunchOverride override = battleLaunchOverride;
+        if (override != null && override.launch(player, pending.preset, opponent)) return;
+        int accepted = player.getServer().getCommands().getDispatcher().execute(
+            pending.preset.launchCommand(player.getGameProfile().getName(), opponent.getUUID()),
+            opponent.createCommandSourceStack().withPermission(4).withSuppressedOutput()
+        );
+        // The cinematic intro deliberately launches TBCS a few ticks later.
+        if (accepted <= 0) {
+            throw new EventRuntimeException("battle 시작 예약 명령이 거부됐습니다.");
+        }
     }
 
     static EventBattlePreset.MoneyReward rewardFor(
@@ -245,6 +250,7 @@ public final class EventBattleBridge {
             PENDING.remove(playerActor.getUuid(), pending);
             ServerPlayer player = playerActor.getEntity();
             if (player == null) continue;
+            clearInterruptedBattle(player);
             boolean won = winners.contains(actor);
             LOGGER.info(
                 "CVES battle completed: player={}, preset={}, battle={}, outcome={}",
@@ -272,6 +278,7 @@ public final class EventBattleBridge {
         PENDING.remove(playerId, pending);
         ServerPlayer player = event.getPlayer().getEntity();
         if (player != null) {
+            clearInterruptedBattle(player);
             complete(player, pending, "cancelled", EventSession.CompletionKind.CANCELLED);
         }
     }
@@ -283,8 +290,52 @@ public final class EventBattleBridge {
 
     private static void onServerTick(ServerTickEvent.Post event) {
         long tick = event.getServer().overworld().getGameTime();
+        List<Map.Entry<UUID, PendingBattle>> restarting = PENDING.entrySet().stream()
+            .filter(entry -> entry.getValue().restartAtTick > 0L
+                && entry.getValue().restartAtTick <= tick)
+            .toList();
+        for (Map.Entry<UUID, PendingBattle> entry : restarting) {
+            PendingBattle pending = entry.getValue();
+            ServerPlayer player = event.getServer().getPlayerList().getPlayer(entry.getKey());
+            if (player == null || PENDING.get(entry.getKey()) != pending) continue;
+            if (BattleRegistry.getBattleByParticipatingPlayerId(entry.getKey()) != null) {
+                pending.restartAtTick = tick + 1L;
+                continue;
+            }
+            Entity opponent = findEntity(player, pending.key.npcId());
+            if (opponent == null || !opponent.isAlive()) {
+                if (pending.startExpiresAtTick <= tick) {
+                    if (PENDING.remove(entry.getKey(), pending)) {
+                        clearInterruptedBattle(player);
+                        complete(player, pending, "cancelled", EventSession.CompletionKind.FAILED);
+                    }
+                    continue;
+                }
+                pending.restartAtTick = tick + 20L;
+                continue;
+            }
+            pending.restartAtTick = 0L;
+            try {
+                launch(player, pending, opponent);
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    pending.preset.canForfeit()
+                        ? "중단된 트레이너 전투를 다시 시작합니다."
+                        : "포기할 수 없는 전투가 중단되어 같은 전투를 다시 시작합니다."
+                ));
+            } catch (CommandSyntaxException | RuntimeException error) {
+                LOGGER.error(
+                    "Interrupted trainer battle could not restart: player={}, preset={}",
+                    player.getGameProfile().getName(), pending.preset.battleId(), error
+                );
+                if (PENDING.remove(entry.getKey(), pending)) {
+                    clearInterruptedBattle(player);
+                    complete(player, pending, "cancelled", EventSession.CompletionKind.FAILED);
+                }
+            }
+        }
         List<Map.Entry<UUID, PendingBattle>> expired = PENDING.entrySet().stream()
             .filter(entry -> entry.getValue().battleInstanceId == null
+                && entry.getValue().restartAtTick == 0L
                 && entry.getValue().startExpiresAtTick <= tick)
             .toList();
         for (Map.Entry<UUID, PendingBattle> entry : expired) {
@@ -292,9 +343,89 @@ public final class EventBattleBridge {
             if (!PENDING.remove(entry.getKey(), pending)) continue;
             ServerPlayer player = event.getServer().getPlayerList().getPlayer(entry.getKey());
             if (player != null) {
+                clearInterruptedBattle(player);
                 complete(player, pending, "cancelled", EventSession.CompletionKind.FAILED);
             }
         }
+    }
+
+    private static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        PendingBattle pending = PENDING.get(player.getUUID());
+        if (pending == null) return;
+        pending.battleInstanceId = null;
+        pending.startExpiresAtTick = Long.MAX_VALUE;
+        pending.restartAtTick = -1L;
+        saveInterruptedBattle(player, pending);
+        LOGGER.info(
+            "Trainer battle interrupted by disconnect: player={}, preset={}, canForfeit={}",
+            player.getGameProfile().getName(), pending.preset.battleId(),
+            pending.preset.canForfeit()
+        );
+    }
+
+    private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        PendingBattle pending = PENDING.get(player.getUUID());
+        if (pending == null) pending = restoreInterruptedBattle(player);
+        if (pending == null) return;
+        if (PokemonCenterDefeatReturn.isPartyWiped(player)) {
+            PENDING.remove(player.getUUID(), pending);
+            clearInterruptedBattle(player);
+            complete(player, pending, "loss", EventSession.CompletionKind.FAILED);
+            return;
+        }
+        long tick = player.getServer().overworld().getGameTime();
+        pending.startExpiresAtTick = tick + START_TIMEOUT_TICKS;
+        pending.restartAtTick = tick + RECONNECT_RESTART_DELAY_TICKS;
+        PENDING.put(player.getUUID(), pending);
+    }
+
+    private static void saveInterruptedBattle(ServerPlayer player, PendingBattle pending) {
+        CompoundTag value = new CompoundTag();
+        value.putString("npc", pending.key.npcId().toString());
+        value.putString("script", pending.key.scriptId());
+        value.putString("trigger", pending.key.triggerInstance());
+        value.putString("token", pending.token);
+        value.putString("preset", pending.preset.battleId());
+        player.getPersistentData().put(INTERRUPTED_BATTLE_TAG, value);
+    }
+
+    private static PendingBattle restoreInterruptedBattle(ServerPlayer player) {
+        CompoundTag data = player.getPersistentData();
+        if (!data.contains(INTERRUPTED_BATTLE_TAG, Tag.TAG_COMPOUND)) return null;
+        CompoundTag value = data.getCompound(INTERRUPTED_BATTLE_TAG);
+        try {
+            EventSessionKey key = new EventSessionKey(
+                player.getUUID(), UUID.fromString(value.getString("npc")),
+                value.getString("script"), value.getString("trigger")
+            );
+            String token = value.getString("token");
+            EventSession session = SavedEventSessionStore.get(player.getServer())
+                .find(key).orElse(null);
+            EventBattlePreset preset = EventBattlePresetRepository.instance()
+                .find(value.getString("preset")).orElse(null);
+            if (session == null || preset == null
+                || session.status() != EventSession.Status.WAITING
+                || session.awaiting() == null
+                || !session.awaiting().kind().equals("battle")
+                || !session.awaiting().token().equals(token)) {
+                clearInterruptedBattle(player);
+                return null;
+            }
+            return new PendingBattle(key, token, preset, Long.MAX_VALUE);
+        } catch (IllegalArgumentException error) {
+            LOGGER.warn(
+                "Invalid interrupted battle state was discarded for player {}",
+                player.getGameProfile().getName(), error
+            );
+            clearInterruptedBattle(player);
+            return null;
+        }
+    }
+
+    private static void clearInterruptedBattle(ServerPlayer player) {
+        player.getPersistentData().remove(INTERRUPTED_BATTLE_TAG);
     }
 
     private static void complete(
@@ -358,8 +489,9 @@ public final class EventBattleBridge {
         private final EventSessionKey key;
         private final String token;
         private final EventBattlePreset preset;
-        private final long startExpiresAtTick;
+        private long startExpiresAtTick;
         private UUID battleInstanceId;
+        private long restartAtTick;
 
         private PendingBattle(
             EventSessionKey key, String token, EventBattlePreset preset,
